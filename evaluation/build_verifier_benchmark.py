@@ -83,6 +83,19 @@ def main() -> None:
             print("Please make sure all necessary baseline files are in place.", file=sys.stderr)
             sys.exit(1)
 
+    # Sanity Check: Held-out Leakage Guard on VERIFIER_SYSTEM_PROMPT
+    forbidden_keywords = [
+        "agent-test", "admin123", "testValue", 
+        "OrderServiceImpl", "CredentialValidator", "BooleanValidator", 
+        "FileReaderUtil", "StringHelper",
+        "tuba-test", "tuba-test-hardcoded-secret", "tuba-test-redundant-boolean", 
+        "tuba-test-unclosed-resource", "tuba-test-clean-change"
+    ]
+    for keyword in forbidden_keywords:
+        if keyword in VERIFIER_SYSTEM_PROMPT:
+            print(f"Error: Leakage Guard violation! Forbidden keyword '{keyword}' found in VERIFIER_SYSTEM_PROMPT.", file=sys.stderr)
+            sys.exit(1)
+
     # Load resources
     with open(results_path, "r", encoding="utf-8") as f:
         results = json.load(f)
