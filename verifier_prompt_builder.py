@@ -12,8 +12,9 @@ VERIFIER_SYSTEM_PROMPT = (
     "üretilmiş aday kod inceleme bulgularını doğrulamakla görevlisin.\n\n"
     "ÖNEMLİ GÖREVLERİN:\n"
     "1. Kesinlikle yeni bir problem/bulgu arama.\n"
-    "2. Sadece sana verilen aday bulguyu (candidate finding) ve bu bulgunun ait olduğu reviewer rolünü değerlendir.\n"
-    "3. Kararın kesin olarak 'ACCEPT' (Kabul) ya da 'REJECT' (Red) olmalıdır.\n\n"
+    "2. Sadece sana verilen aday bulgunun (candidate finding) problem ve failure_scenario iddiasının PR diff ve code context tarafından desteklenip desteklenmediğini değerlendir.\n"
+    "3. Önerilen herhangi bir düzeltmenin (fix) iyi, uygulanmış, gerekli veya eksiksiz olup olmadığını değerlendirme.\n"
+    "4. Kararın kesin olarak 'ACCEPT' (Kabul) ya da 'REJECT' (Red) olmalıdır.\n\n"
     "ACCEPT (Kabul) Kriterleri (Tüm şartlar sağlanmalı):\n"
     "- Bulguda belirtilen problem, verilen PR diff/context tarafından doğrudan destekleniyorsa.\n"
     "- Problem, PR ile eklenen ya da değiştirilen kod satırlarından kaynaklanıyorsa.\n"
@@ -33,8 +34,7 @@ VERIFIER_SYSTEM_PROMPT = (
     "  \"file\": \"src/main/java/com/demo/config/AppConfig.java\",\n"
     "  \"line\": 12,\n"
     "  \"problem\": \"Gereksiz yere timeout değeri 30 saniye olarak belirlenmiş, bu durum security validation hatasına yol açar.\",\n"
-    "  \"failure_scenario\": \"Timeout süresi uzun olduğu için DDoS ataklarında sunucu kaynakları tükenebilir.\",\n"
-    "  \"suggested_fix\": \"Timeout süresini 5 saniyeye indirin.\"\n"
+    "  \"failure_scenario\": \"Timeout süresi uzun olduğu için DDoS ataklarında sunucu kaynakları tükenebilir.\"\n"
     "}\n"
     "Reviewer Rolü: security_validation\n"
     "Kod Değişikliği (PR Diff): \n"
@@ -45,8 +45,7 @@ VERIFIER_SYSTEM_PROMPT = (
     "  \"file\": \"src/main/java/com/demo/math/Calculator.java\",\n"
     "  \"line\": 8,\n"
     "  \"problem\": \"Olası ArithmeticException (Division by Zero) hatası.\",\n"
-    "  \"failure_scenario\": \"Eğer divisor parametresi 0 olarak gönderilirse, kod integer division sırasında sıfıra bölme hatası verip çökecektir.\",\n"
-    "  \"suggested_fix\": \"if (divisor == 0) throw new IllegalArgumentException(\\\"Divisor cannot be zero\\\");\"\n"
+    "  \"failure_scenario\": \"Eğer divisor parametresi 0 olarak gönderilirse, kod integer division sırasında sıfıra bölme hatası verip çökecektir.\"\n"
     "}\n"
     "Reviewer Rolü: correctness_logic\n"
     "Kod Değişikliği (PR Diff): \n"
@@ -70,8 +69,10 @@ def build_verifier_user_prompt(candidate_id: str, source_reviewer: str, candidat
     """
     Builds the user prompt for the verifier, providing it with the candidate finding,
     source reviewer, and original PR diff / context details.
+    Excludes suggested_fix from candidate finding representation.
     """
-    finding_str = json.dumps(candidate_finding, indent=2, ensure_ascii=False)
+    cleaned_finding = {k: v for k, v in candidate_finding.items() if k != "suggested_fix"}
+    finding_str = json.dumps(cleaned_finding, indent=2, ensure_ascii=False)
     user_prompt = (
         f"CANDIDATE ID: {candidate_id}\n"
         f"SOURCE REVIEWER ROLE: {source_reviewer}\n\n"
