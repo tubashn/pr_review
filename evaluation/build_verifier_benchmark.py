@@ -199,12 +199,17 @@ def main() -> None:
             if expected_verdict == "REJECT" and reason_type == "false_positive":
                 stats["expected_reject"] += 1
 
+            # Compute deterministic PR change metadata
+            from verifier_prompt_builder import compute_pr_change_metadata
+            pr_metadata = compute_pr_change_metadata(pr_context, f.get("file", ""), f.get("line"))
+
             # Build candidate record
             candidate = {
                 "candidate_id": candidate_id,
                 "branch": branch,
                 "source_reviewer": reviewer,
                 "candidate_finding": f,
+                "pr_change_metadata": pr_metadata,
                 "pr_context": pr_context,
                 "expected_verdict": expected_verdict,
                 "expected_reason_type": reason_type
@@ -232,6 +237,8 @@ def main() -> None:
     with open(script_dir / "verifier_benchmark.json", "w", encoding="utf-8") as f:
         json.dump(verifier_candidates, f, indent=2, ensure_ascii=False)
     with open(script_dir / "verifier_requests.json", "w", encoding="utf-8") as f:
+        json.dump(verifier_requests, f, indent=2, ensure_ascii=False)
+    with open(script_dir / "verifier_requests_V3_CLEAN.json", "w", encoding="utf-8") as f:
         json.dump(verifier_requests, f, indent=2, ensure_ascii=False)
 
     # Print summary reports
