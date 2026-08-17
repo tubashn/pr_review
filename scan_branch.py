@@ -70,23 +70,47 @@ def extract_context(file_path: Path, begin_line: int, end_line: int) -> dict:
 
 
 def main() -> None:
-    # 1. Accept a Git branch name as a command-line argument
-    if len(sys.argv) < 2:
+    # Accept a Git branch name and target repository path as command-line arguments
+    # Usage: python scan_branch.py [--repo <target-repo-path>] <branch-name>
+    target_repo = None
+    branch_name = None
+
+    args = sys.argv[1:]
+    if "--repo" in args:
+        try:
+            repo_idx = args.index("--repo")
+            target_repo = Path(args[repo_idx + 1]).resolve()
+            # Remove --repo <path> from args list
+            args.pop(repo_idx + 1)
+            args.pop(repo_idx)
+        except (ValueError, IndexError):
+            print("Error: --repo option requires a path argument.", file=sys.stderr)
+            sys.exit(1)
+
+    if len(args) < 1:
         print("Error: Missing branch name argument.", file=sys.stderr)
-        print("Usage: python agent/scan_branch.py <branch-name>", file=sys.stderr)
+        print("Usage: python scan_branch.py [--repo <target-repo-path>] <branch-name>", file=sys.stderr)
         sys.exit(1)
 
-    branch_name = sys.argv[1]
+    branch_name = args[0]
 
-    # Resolve project root (the directory containing agent/ and src/)
-    project_root = Path(__file__).resolve().parents[1]
-    baseline_path = project_root / "agent" / "pmd_baseline.json"
-    new_findings_path = project_root / "agent" / "pmd_new_findings.json"
+    # Resolve review agent root (the directory containing this script)
+    review_root = Path(__file__).resolve().parent
+    baseline_path = review_root / "pmd_baseline.json"
+    new_findings_path = review_root / "pmd_new_findings.json"
 
-    # 3. Run git fetch origin
+    # If target_repo is not specified, default to the current directory
+    if target_repo is None:
+        target_repo = Path.cwd()
+
+    print(f"Target repository: {target_repo}")
+    print(f"Review agent root: {review_root}")
+    print(f"Scanning branch: {branch_name}")
+
+    # 3. Run git fetch origin inside target repository
     print("Running git fetch origin...")
     try:
-        subprocess.run(["git", "fetch", "origin"], check=True, capture_output=True, text=True)
+        subprocess.run(["git", "fetch", "origin"], cwd=str(target_repo), check=True, capture_output=True, text=True)
     except FileNotFoundError:
         print("Error: Git command not found. Please ensure Git is installed and in your PATH.", file=sys.stderr)
         sys.exit(1)
@@ -103,6 +127,7 @@ def main() -> None:
     try:
         result_wt = subprocess.run(
             ["git", "worktree", "add", "--detach", str(temp_worktree_path), f"origin/{branch_name}"],
+            cwd=str(target_repo),
             capture_output=True,
             text=True
         )
@@ -239,6 +264,7 @@ def main() -> None:
             try:
                 subprocess.run(
                     ["git", "worktree", "remove", "--force", str(temp_worktree_path)],
+                    cwd=str(target_repo),
                     capture_output=True,
                     text=True
                 )

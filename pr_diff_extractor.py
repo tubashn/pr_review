@@ -72,17 +72,39 @@ def parse_diff_hunks(diff_output: str) -> list:
 
 
 def main() -> None:
-    if len(sys.argv) < 2:
+    # Accept a Git branch name and target repository path as command-line arguments
+    # Usage: python pr_diff_extractor.py [--repo <target-repo-path>] <branch-name>
+    target_repo = None
+    branch_name = None
+
+    args = sys.argv[1:]
+    if "--repo" in args:
+        try:
+            repo_idx = args.index("--repo")
+            target_repo = Path(args[repo_idx + 1]).resolve()
+            # Remove --repo <path> from args list
+            args.pop(repo_idx + 1)
+            args.pop(repo_idx)
+        except (ValueError, IndexError):
+            print("Error: --repo option requires a path argument.", file=sys.stderr)
+            sys.exit(1)
+
+    if len(args) < 1:
         print("Error: Missing branch name argument.", file=sys.stderr)
-        print("Usage: python agent/pr_diff_extractor.py <branch-name>", file=sys.stderr)
+        print("Usage: python pr_diff_extractor.py [--repo <target-repo-path>] <branch-name>", file=sys.stderr)
         sys.exit(1)
 
-    branch_name = sys.argv[1]
-    
+    branch_name = args[0]
+
+    if target_repo is None:
+        target_repo = Path.cwd()
+
+    print(f"Target repository: {target_repo}")
+
     # 3. Run git fetch origin
     print("Running git fetch origin...")
     try:
-        subprocess.run(["git", "fetch", "origin"], check=True, capture_output=True, text=True)
+        subprocess.run(["git", "fetch", "origin"], cwd=str(target_repo), check=True, capture_output=True, text=True)
     except FileNotFoundError:
         print("Error: Git command not found.", file=sys.stderr)
         sys.exit(1)
@@ -91,7 +113,7 @@ def main() -> None:
         sys.exit(1)
 
     # 12. Check if branch exists
-    res = subprocess.run(["git", "rev-parse", "--verify", f"origin/{branch_name}"], capture_output=True)
+    res = subprocess.run(["git", "rev-parse", "--verify", f"origin/{branch_name}"], cwd=str(target_repo), capture_output=True)
     if res.returncode != 0:
         print(f"Error: Branch 'origin/{branch_name}' does not exist on origin.", file=sys.stderr)
         sys.exit(1)
@@ -100,6 +122,7 @@ def main() -> None:
     try:
         status_res = subprocess.run(
             ["git", "diff", "--name-status", "origin/main...origin/" + branch_name, "--", "*.java"],
+            cwd=str(target_repo),
             check=True,
             capture_output=True,
             text=True
@@ -136,6 +159,7 @@ def main() -> None:
         try:
             diff_res = subprocess.run(
                 ["git", "diff", "-U15", "origin/main...origin/" + branch_name, "--", file_path],
+                cwd=str(target_repo),
                 check=True,
                 capture_output=True,
                 text=True

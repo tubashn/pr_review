@@ -5,6 +5,20 @@ from pathlib import Path
 
 
 def main() -> None:
+    # Usage: python build_reviewer_batch.py [--repo <target-repo-path>]
+    target_repo = None
+    args = sys.argv[1:]
+    if "--repo" in args:
+        try:
+            repo_idx = args.index("--repo")
+            target_repo = Path(args[repo_idx + 1]).resolve()
+            # Remove --repo <path> from args list
+            args.pop(repo_idx + 1)
+            args.pop(repo_idx)
+        except (ValueError, IndexError):
+            print("Error: --repo option requires a path argument.", file=sys.stderr)
+            sys.exit(1)
+
     branches = [
         "tuba-test",
         "tuba-test-hardcoded-secret",
@@ -14,7 +28,6 @@ def main() -> None:
     ]
     
     script_dir = Path(__file__).resolve().parent
-    project_root = script_dir.parent
     
     batch_requests = []
     branch_summary = {}
@@ -25,11 +38,15 @@ def main() -> None:
         print(f"Processing branch: {branch}...")
         
         # 1. Run pr_diff_extractor
-        extractor_cmd = [python_exe, str(script_dir / "pr_diff_extractor.py"), branch]
+        extractor_cmd = [python_exe, str(script_dir / "pr_diff_extractor.py")]
+        if target_repo is not None:
+            extractor_cmd += ["--repo", str(target_repo)]
+        extractor_cmd.append(branch)
+        
         try:
             subprocess.run(
                 extractor_cmd,
-                cwd=str(project_root),
+                cwd=str(script_dir),
                 capture_output=True,
                 text=True,
                 check=True
@@ -43,7 +60,7 @@ def main() -> None:
         try:
             subprocess.run(
                 builder_cmd,
-                cwd=str(project_root),
+                cwd=str(script_dir),
                 capture_output=True,
                 text=True,
                 check=True
