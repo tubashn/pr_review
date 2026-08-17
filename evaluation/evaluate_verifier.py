@@ -99,9 +99,34 @@ def main() -> None:
             cleaned = clean_raw_response(raw_response)
             try:
                 parsed = json.loads(cleaned)
-                predicted_verdict = parsed.get("verdict", "").strip().upper()
-                if predicted_verdict not in ["ACCEPT", "REJECT"]:
-                    raise ValueError(f"Invalid verdict value: {predicted_verdict}")
+                if not isinstance(parsed, dict):
+                    raise ValueError("Parsed JSON response must be an object/dict")
+
+                predicted_verdict = None
+
+                # Check boolean finding_supported (V4 format)
+                if "finding_supported" in parsed:
+                    fs = parsed.get("finding_supported")
+                    if not isinstance(fs, bool):
+                        raise ValueError(f"finding_supported must be a strict boolean (True/False), got: {repr(fs)} ({type(fs).__name__})")
+                    predicted_verdict = "ACCEPT" if fs is True else "REJECT"
+
+                # Check legacy verdict string (V1-V3 format)
+                if "verdict" in parsed:
+                    raw_v = parsed.get("verdict")
+                    if not isinstance(raw_v, str):
+                        raise ValueError(f"verdict must be a string, got: {repr(raw_v)}")
+                    v_str = raw_v.strip().upper()
+                    if v_str not in ["ACCEPT", "REJECT"]:
+                        raise ValueError(f"Invalid verdict value: {v_str}")
+                    
+                    if predicted_verdict is not None and predicted_verdict != v_str:
+                        raise ValueError(f"Conflicting fields: finding_supported resolves to {predicted_verdict} but verdict is {v_str}")
+                    predicted_verdict = v_str
+
+                if predicted_verdict is None:
+                    raise ValueError("Neither 'finding_supported' (boolean) nor 'verdict' (ACCEPT/REJECT) found in response")
+
             except Exception as e:
                 parse_error_count += 1
                 predicted_verdict = "PARSE_ERROR"

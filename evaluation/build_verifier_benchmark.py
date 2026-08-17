@@ -212,6 +212,7 @@ def main() -> None:
                 "pr_change_metadata": pr_metadata,
                 "pr_context": pr_context,
                 "expected_verdict": expected_verdict,
+                "expected_finding_supported": (expected_verdict == "ACCEPT"),
                 "expected_reason_type": reason_type
             }
             verifier_candidates.append(candidate)
@@ -225,6 +226,7 @@ def main() -> None:
                 "system_prompt": VERIFIER_SYSTEM_PROMPT,
                 "user_prompt": user_prompt,
                 "expected_verdict": expected_verdict,
+                "expected_finding_supported": (expected_verdict == "ACCEPT"),
                 "expected_reason_type": reason_type
             }
             verifier_requests.append(request)
@@ -238,7 +240,7 @@ def main() -> None:
         json.dump(verifier_candidates, f, indent=2, ensure_ascii=False)
     with open(script_dir / "verifier_requests.json", "w", encoding="utf-8") as f:
         json.dump(verifier_requests, f, indent=2, ensure_ascii=False)
-    with open(script_dir / "verifier_requests_V3_CLEAN.json", "w", encoding="utf-8") as f:
+    with open(script_dir / "verifier_requests_V4_CLEAN.json", "w", encoding="utf-8") as f:
         json.dump(verifier_requests, f, indent=2, ensure_ascii=False)
 
     # Print summary reports
