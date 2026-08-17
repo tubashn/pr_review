@@ -1,0 +1,75 @@
+{
+  "metadata": {
+    "purpose": "HELD-OUT TEST SET",
+    "description": "Bu 5 branch (tuba-test, tuba-test-hardcoded-secret, tuba-test-redundant-boolean, tuba-test-unclosed-resource, tuba-test-clean-change) HELD-OUT TEST SETİDİR. LoRA training, validation veya dataset generation aşamalarında kullanılmamalıdır."
+  },
+  "branches": {
+    "tuba-test": {
+      "correctness_logic": null,
+      "security_validation": null,
+      "maintainability": {
+        "expected_problem": "unused local variable",
+        "expected_file": "OrderServiceImpl.java",
+        "expected_lines": [64],
+        "line_tolerance": 1,
+        "expected_concepts": [
+          ["unused", "not used", "kullanılmıyor", "kullanilmiyor"],
+          ["variable", "değişken", "degisken"]
+        ]
+      }
+    },
+    "tuba-test-hardcoded-secret": {
+      "correctness_logic": null,
+      "security_validation": {
+        "expected_problem": "hardcoded credential/password",
+        "expected_file": "CredentialValidator.java",
+        "expected_lines": [6],
+        "line_tolerance": 1,
+        "expected_concepts": [
+          ["hardcoded", "hard-coded"],
+          ["password", "credential", "credentials", "şifre", "sifre", "parola"]
+        ]
+      },
+      "maintainability": null
+    },
+    "tuba-test-redundant-boolean": {
+      "correctness_logic": null,
+      "security_validation": null,
+      "maintainability": {
+        "expected_problem": "redundant boolean comparison",
+        "expected_file": "BooleanValidator.java",
+        "expected_lines": [6],
+        "line_tolerance": 1,
+        "expected_concepts": [
+          ["redundant", "unnecessary", "gereksiz"],
+          ["boolean", "comparison", "== true"]
+        ]
+      }
+    },
+    "tuba-test-unclosed-resource": {
+      "correctness_logic": {
+        "expected_problem": "unclosed resource / FileInputStream",
+        "expected_file": "FileReaderUtil.java",
+        "expected_lines": [9, 10],
+        "line_tolerance": 1,
+        "expected_concepts": [
+          [
+            "unclosed",
+            "not closed",
+            "close() method is not called",
+            "resource leak",
+            "resource leaks",
+            "fileinputstream"
+          ]
+        ]
+      },
+      "security_validation": null,
+      "maintainability": null
+    },
+    "tuba-test-clean-change": {
+      "correctness_logic": null,
+      "security_validation": null,
+      "maintainability": null
+    }
+  }
+}

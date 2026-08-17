@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PR Reviewer LoRA Dataset Schema",
+  "description": "General-purpose dataset schema for fine-tuning the PR Reviewer model using LoRA. The training dataset must NOT include the held-out test branches (tuba-test, tuba-test-hardcoded-secret, tuba-test-redundant-boolean, tuba-test-unclosed-resource, tuba-test-clean-change).",
+  "metadata": {
+    "lora_objectives": [
+      "Maintain high recall for actual issues",
+      "Reduce false positives (FP)",
+      "Avoid generating findings on clean PRs (tuba-test-clean-change style)",
+      "Minimize reviewer role leakage (ensure reviewers stick strictly to correctness, security, or maintainability roles)",
+      "Avoid over-fitting to specific bug patterns; generalize general PR review capabilities"
+    ],
+    "future_scenario_categories": {
+      "correctness_logic": [
+        "null_handling",
+        "incorrect_condition",
+        "wrong_comparison",
+        "incorrect_return_value",
+        "off_by_one",
+        "missing_edge_case",
+        "wrong_state_mutation",
+        "incorrect_collection_handling",
+        "exception_handling",
+        "transaction_logic",
+        "repository_result_handling",
+        "resource_management",
+        "concurrency_risk"
+      ],
+      "security_validation": [
+        "hardcoded_secret",
+        "missing_input_validation",
+        "injection",
+        "path_traversal",
+        "authentication",
+        "authorization",
+        "sensitive_data_exposure",
+        "insecure_configuration",
+        "unsafe_deserialization"
+      ],
+      "maintainability": [
+        "unused_code",
+        "dead_code",
+        "redundant_expression",
+        "redundant_boolean",
+        "unnecessary_complexity",
+        "duplicated_logic",
+        "poor_exception_structure",
+        "misleading_code",
+        "resource_style_issue"
+      ],
+      "negative": [
+        "clean_change"
+      ]
+    },
+    "note_on_source_scenario_id": "All three reviewer training instances generated for a single PR scenario must share the exact same 'source_scenario_id'. For example, if a scenario represents a hardcoded secret, the 'security_validation' instance must report the finding, whereas 'correctness_logic' and 'maintainability' instances must yield empty findings list, teaching the model reviewer role discipline."
+  },
+  "sample_structure": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "description": "Unique identifier for the training sample"
+      },
+      "scenario_category": {
+        "type": "string",
+        "description": "Specific scenario type from correctness_logic, security_validation, maintainability, or clean_change categories"
+      },
+      "difficulty": {
+        "type": "string",
+        "enum": ["easy", "medium", "hard"],
+        "description": "Difficulty level of identifying the issue"
+      },
+      "language": {
+        "type": "string",
+        "const": "java",
+        "description": "The programming language of the codebase"
+      },
+      "reviewer": {
+        "type": "string",
+        "enum": ["correctness_logic", "security_validation", "maintainability"],
+        "description": "The reviewer agent personality this sample fine-tunes"
+      },
+      "pr_diff": {
+        "type": "string",
+        "description": "The unified diff containing the changes made in the PR"
+      },
+      "context": {
+        "type": "string",
+        "description": "Associated surrounding code context for context awareness"
+      },
+      "expected_output": {
+        "type": "object",
+        "properties": {
+          "reviewer": {
+            "type": "string",
+            "enum": ["correctness_logic", "security_validation", "maintainability"]
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "file": { "type": "string" },
+                "line": { "type": "integer" },
+                "certainty": { "type": "string", "enum": ["DEFINITE", "POSSIBLE"] },
+                "problem": { "type": "string" },
+                "failure_scenario": { "type": "string" },
+                "suggested_fix": { "type": "string" }
+              },
+              "required": ["file", "line", "certainty", "problem", "suggested_fix"]
+            }
+          }
+        },
+        "required": ["reviewer", "findings"]
+      },
+      "is_clean": {
+        "type": "boolean",
+        "description": "True if no issue should be found by this reviewer for the code change"
+      },
+      "source_scenario_id": {
+        "type": "string",
+        "description": "Identifier to group correctness_logic, security_validation, and maintainability reviewer instances originating from the same scenario"
+      },
+      "split": {
+        "type": "string",
+        "enum": ["train", "validation"],
+        "description": "Data split classification"
+      }
+    },
+    "required": [
+      "id",
+      "scenario_category",
+      "difficulty",
+      "language",
+      "reviewer",
+      "pr_diff",
+      "context",
+      "expected_output",
+      "is_clean",
+      "source_scenario_id",
+      "split"
+    ]
+  }
+}

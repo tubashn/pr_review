@@ -1,0 +1,72 @@
+[
+  {
+    "tool": "PMD",
+    "file": "src\\main\\java\\com\\tayipd\\orderapp\\component\\MealLoader.java",
+    "line": 17,
+    "end_line": 17,
+    "rule": "UnnecessaryImport",
+    "ruleset": "Code Style",
+    "priority": 4,
+    "message": "Unused import 'java.text.DecimalFormat'"
+  },
+  {
+    "tool": "PMD",
+    "file": "src\\main\\java\\com\\tayipd\\orderapp\\repository\\OrderRepository.java",
+    "line": 10,
+    "end_line": 10,
+    "rule": "UnnecessaryImport",
+    "ruleset": "Code Style",
+    "priority": 4,
+    "message": "Unused import 'java.util.List'"
+  },
+  {
+    "tool": "PMD",
+    "file": "src\\main\\java\\com\\tayipd\\orderapp\\security\\JWTAuthorizationFilter.java",
+    "line": 36,
+    "end_line": 36,
+    "rule": "UnnecessaryReturn",
+    "ruleset": "Code Style",
+    "priority": 3,
+    "message": "Unnecessary return statement"
+  },
+  {
+    "tool": "PMD",
+    "file": "src\\main\\java\\com\\tayipd\\orderapp\\security\\JWTAuthorizationFilter.java",
+    "line": 41,
+    "end_line": 41,
+    "rule": "UnnecessaryReturn",
+    "ruleset": "Code Style",
+    "priority": 3,
+    "message": "Unnecessary return statement"
+  },
+  {
+    "tool": "PMD",
+    "file": "src\\main\\java\\com\\tayipd\\orderapp\\security\\JWTAuthorizationFilter.java",
+    "line": 45,
+    "end_line": 45,
+    "rule": "UnnecessaryReturn",
+    "ruleset": "Code Style",
+    "priority": 3,
+    "message": "Unnecessary return statement"
+  },
+  {
+    "tool": "PMD",
+    "file": "src\\main\\java\\com\\tayipd\\orderapp\\security\\JWTAuthorizationFilter.java",
+    "line": 50,
+    "end_line": 50,
+    "rule": "UnnecessaryReturn",
+    "ruleset": "Code Style",
+    "priority": 3,
+    "message": "Unnecessary return statement"
+  },
+  {
+    "tool": "PMD",
+    "file": "src\\main\\java\\com\\tayipd\\orderapp\\util\\ModelMapperHelper.java",
+    "line": 28,
+    "end_line": 28,
+    "rule": "UnusedPrivateMethod",
+    "ruleset": "Best Practices",
+    "priority": 3,
+    "message": "Avoid unused private methods such as 'getTypeMap(Class<S>, Class<D>)'."
+  }
+]

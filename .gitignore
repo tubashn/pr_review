@@ -1,0 +1,36 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.env.*
+*.key
+
+# Model / checkpoint files
+*.safetensors
+checkpoints/
+models/
+adapters/
+
+# Generated PR review outputs
+pmd_findings.json
+pmd_new_findings.json
+qwen_requests.json
+pr_diff.json
+reviewer_requests.json
+reviewer_batch_requests.json
+
+# Evaluation generated outputs
+evaluation/evaluation_report.json
+evaluation/reviewer_batch_results_7b.json
+evaluation/reviewer_batch_results_lora_7b.json
+evaluation/qwen_results_simulated.json
+evaluation/verifier_requests.json
+evaluation/verifier_results_7b.json
+evaluation/verifier_evaluation_report.json
+evaluation/verifier_benchmark.json
+
+# Training generated outputs
+training/lora_train.jsonl
+training/lora_validation.jsonl
+training/scenario_audit_report.json
