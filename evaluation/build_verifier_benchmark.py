@@ -240,7 +240,7 @@ def main() -> None:
         json.dump(verifier_candidates, f, indent=2, ensure_ascii=False)
     with open(script_dir / "verifier_requests.json", "w", encoding="utf-8") as f:
         json.dump(verifier_requests, f, indent=2, ensure_ascii=False)
-    with open(script_dir / "verifier_requests_V4_CLEAN.json", "w", encoding="utf-8") as f:
+    with open(script_dir / "verifier_requests_V4_1_ORDERING_CLEAN.json", "w", encoding="utf-8") as f:
         json.dump(verifier_requests, f, indent=2, ensure_ascii=False)
 
     # Print summary reports
