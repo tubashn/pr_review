@@ -156,6 +156,206 @@ def is_grounded_problem_evidence(quote: str, added_lines: list[str]) -> bool:
     return False
 
 
+# Grounding Strategy Constants
+STRATEGY_DIRECT = "DIRECT"
+STRATEGY_ABSENCE_REFERENCE = "ABSENCE_REFERENCE"
+STRATEGY_ABSENCE_RESOURCE_CLEANUP = "ABSENCE_RESOURCE_CLEANUP"
+
+
+def normalize_text_for_routing(text: str) -> str:
+    """
+    Normalizes text for keyword matching (Turkish/English lowercase normalization).
+    """
+    if not text:
+        return ""
+    t = text.lower()
+    replacements = {
+        'ı': 'i', 'ğ': 'g', 'ü': 'u', 'ş': 's', 'ö': 'o', 'ç': 'c',
+        'â': 'a', 'î': 'i', 'û': 'u'
+    }
+    for tr, en in replacements.items():
+        t = t.replace(tr, en)
+    return t
+
+
+def classify_grounding_strategy(problem_text: str) -> str:
+    """
+    Deterministically routes candidate problem to DIRECT, ABSENCE_REFERENCE, or ABSENCE_RESOURCE_CLEANUP.
+    Uses generic semantic keyword matching without hardcoding benchmark-specific branch/class/literal names.
+    """
+    norm_p = normalize_text_for_routing(problem_text)
+    if not norm_p:
+        return STRATEGY_DIRECT
+
+    # Absence of resource cleanup keywords
+    resource_keywords = [
+        "unclosed resource", "resource leak", "stream not closed", "missing close",
+        "close() not called", "close() method is not called", "try-with-resources missing",
+        "try-with-resources", "kaynak kapatilmiyor", "resource kapanmiyor",
+        "kapatilmamis", "kapatilmiyor", "fileinputstream", "inputstream.close"
+    ]
+    for kw in resource_keywords:
+        if kw in norm_p:
+            return STRATEGY_ABSENCE_RESOURCE_CLEANUP
+
+    # Absence of variable reference / unused variable keywords
+    unused_keywords = [
+        "unused", "never used", "not used", "unreferenced", "dead variable",
+        "dead local", "kullanilmiyor", "kullanilmayan degisken", "kullanilmayan bir degisken",
+        "kullanilmamasi", "kullanilmasi gereksiz"
+    ]
+    for kw in unused_keywords:
+        if kw in norm_p:
+            return STRATEGY_ABSENCE_REFERENCE
+
+    return STRATEGY_DIRECT
+
+
+def extract_variable_identifier(line: str) -> str | None:
+    """
+    Extracts variable identifier from a Java variable declaration line.
+    Example: 'String strVal = "example";' -> 'strVal'
+             'int count = 0;' -> 'count'
+             'FileInputStream in = new FileInputStream(p);' -> 'in'
+    """
+    if not line:
+        return None
+    import re
+    cleaned = normalize_code_line(line)
+    # Match standard Java variable declaration pattern: Type identifier (= value)?;
+    # Handles generics (e.g. List<String> list), primitive types, class types
+    pattern = re.compile(r"^(?:[\w\<\>\[\]]+)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*(?:=|;)")
+    match = pattern.search(cleaned)
+    if match:
+        ident = match.group(1)
+        # Avoid matching keywords like 'public', 'class', 'return', 'if'
+        java_keywords = {"public", "private", "protected", "static", "final", "class", "interface", "enum", "return", "if", "else", "while", "for", "switch", "case", "new", "throw", "throws", "try", "catch", "finally", "void", "boolean", "int", "double", "float", "long", "short", "byte", "char"}
+        if ident not in java_keywords:
+            return ident
+    return None
+
+
+def extract_resource_identifier(line: str) -> str | None:
+    """
+    Extracts resource variable identifier from a Java resource creation line.
+    Example: 'FileInputStream inputStream = new FileInputStream(path);' -> 'inputStream'
+             'InputStream in = new FileInputStream(path);' -> 'in'
+    """
+    if not line:
+        return None
+    import re
+    cleaned = normalize_code_line(line)
+    # Check if line instantiates or obtains a closable/stream resource
+    resource_indicators = ["stream", "reader", "writer", "channel", "connection", "socket", "client", "resource"]
+    is_resource = any(ind in cleaned.lower() for ind in resource_indicators) or "new " in cleaned
+    if is_resource:
+        return extract_variable_identifier(cleaned)
+    return None
+
+
+def validate_unused_reference_absence(pr_context: str, added_lines: list[str]) -> bool:
+    """
+    Deterministically validates that an added variable declaration exists in added_lines,
+    and its identifier is NOT used anywhere else in the enclosing method context.
+    """
+    import re
+    if not added_lines or not pr_context:
+        return False
+
+    # Find variable declaration in added lines
+    candidate_identifier = None
+    declaration_line = None
+    for line in added_lines:
+        ident = extract_variable_identifier(line)
+        if ident:
+            candidate_identifier = ident
+            declaration_line = line
+            break
+
+    if not candidate_identifier or not declaration_line:
+        return False
+
+    # Check for usage in pr_context outside the declaration line
+    pattern = re.compile(rf"\b{re.escape(candidate_identifier)}\b")
+
+    # Clean context lines and count occurrences
+    norm_decl = normalize_code_line(declaration_line)
+    context_lines = [normalize_code_line(l) for l in pr_context.splitlines() if l.strip()]
+
+    usage_found_outside_decl = False
+    for cl in context_lines:
+        # Ignore diff header lines and STATUS lines
+        if cl.startswith("FILE:") or cl.startswith("STATUS:") or cl.startswith("CHANGES:") or cl == "PR DIFF CHANGES":
+            continue
+        # If this is the declaration line itself, skip it
+        if candidate_identifier in cl:
+            if cl == norm_decl or (candidate_identifier in norm_decl and ("=" in cl or ";" in cl) and any(kw in cl for kw in ["String", "int", "boolean", "double", "float", "long", "Object", "var", "List", "Map", "Set"])):
+                continue
+            # Found in another context line
+            if pattern.search(cl):
+                usage_found_outside_decl = True
+                break
+
+    # Grounding is valid if declaration exists and no outside usage exists (absence confirmed)
+    return not usage_found_outside_decl
+
+
+def validate_resource_cleanup_absence(pr_context: str, added_lines: list[str]) -> bool:
+    """
+    Deterministically validates that a resource creation anchor exists in added_lines,
+    and that no corresponding .close() call or try-with-resources pattern exists in the enclosing context.
+    """
+    import re
+    if not added_lines or not pr_context:
+        return False
+
+    # Find resource creation in added lines
+    resource_ident = None
+    for line in added_lines:
+        ident = extract_resource_identifier(line)
+        if ident:
+            resource_ident = ident
+            break
+
+    if not resource_ident:
+        return False
+
+    # Check 1: Is there a try-with-resources header containing the declaration?
+    try_with_resources_pattern = re.compile(r"try\s*\([^)]*" + re.escape(resource_ident) + r"[^)]*\)")
+    if try_with_resources_pattern.search(pr_context):
+        # Cleaned up via try-with-resources -> absence NOT confirmed
+        return False
+
+    # Check 2: Is there a direct .close() call on the resource variable?
+    close_pattern = re.compile(rf"\b{re.escape(resource_ident)}\s*\.\s*close\s*\(")
+    if close_pattern.search(pr_context):
+        # Cleaned up via close() -> absence NOT confirmed
+        return False
+
+    # Resource exists, and no cleanup pattern found -> absence of cleanup confirmed
+    return True
+
+
+def verify_grounding_for_candidate(problem_text: str, quote: str, added_lines: list[str], pr_context: str) -> tuple[bool, str]:
+    """
+    Routes and verifies grounding based on candidate problem nature.
+    Returns: (grounding_valid: bool, strategy_used: str)
+    """
+    strategy = classify_grounding_strategy(problem_text)
+
+    if strategy == STRATEGY_ABSENCE_REFERENCE:
+        valid = validate_unused_reference_absence(pr_context, added_lines)
+        return valid, strategy
+
+    elif strategy == STRATEGY_ABSENCE_RESOURCE_CLEANUP:
+        valid = validate_resource_cleanup_absence(pr_context, added_lines)
+        return valid, strategy
+
+    else:  # DIRECT
+        valid = is_grounded_problem_evidence(quote, added_lines)
+        return valid, STRATEGY_DIRECT
+
+
 def compute_pr_change_metadata(pr_context: str, candidate_file: str, candidate_line: int) -> dict:
     """
     Computes deterministic PR change metadata from structured PR diff context.

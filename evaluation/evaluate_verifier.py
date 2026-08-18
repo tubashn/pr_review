@@ -76,6 +76,9 @@ def main() -> None:
     diag_role_match_false = 0
     diag_grounding_valid = 0
     diag_grounding_invalid = 0
+    diag_strategy_direct = 0
+    diag_strategy_absence_ref = 0
+    diag_strategy_absence_resource = 0
     is_v5_evaluation = False
 
     for candidate in benchmark:
@@ -85,6 +88,14 @@ def main() -> None:
         expected_verdict = candidate["expected_verdict"]
         reason_type = candidate["expected_reason_type"]
         added_lines = candidate.get("added_lines_for_grounding", [])
+        pr_context = candidate.get("pr_context", "")
+        cand_finding = candidate.get("candidate_finding", {})
+        cand_problem = cand_finding.get("problem", "")
+
+        grounding_strategy_used = None
+        grounding_valid_res = None
+        prob_present_val = None
+        role_match_val = None
 
         # Track expected categories
         if expected_verdict == "ACCEPT":
@@ -126,6 +137,9 @@ def main() -> None:
                     if not isinstance(role_match, bool):
                         raise ValueError(f"reviewer_role_matches_problem must be strict boolean, got: {repr(role_match)} ({type(role_match).__name__})")
 
+                    prob_present_val = prob_present
+                    role_match_val = role_match
+
                     if prob_present:
                         diag_problem_present_true += 1
                     else:
@@ -136,9 +150,24 @@ def main() -> None:
                     else:
                         diag_role_match_false += 1
 
-                    # Deterministic grounding verification
-                    from verifier_prompt_builder import is_grounded_problem_evidence
-                    grounded = is_grounded_problem_evidence(quote, added_lines)
+                    # Deterministic absence-aware grounding verification
+                    from verifier_prompt_builder import (
+                        verify_grounding_for_candidate,
+                        STRATEGY_DIRECT,
+                        STRATEGY_ABSENCE_REFERENCE,
+                        STRATEGY_ABSENCE_RESOURCE_CLEANUP
+                    )
+                    grounded, strategy = verify_grounding_for_candidate(cand_problem, quote, added_lines, pr_context)
+                    grounding_strategy_used = strategy
+                    grounding_valid_res = grounded
+
+                    if strategy == STRATEGY_DIRECT:
+                        diag_strategy_direct += 1
+                    elif strategy == STRATEGY_ABSENCE_REFERENCE:
+                        diag_strategy_absence_ref += 1
+                    elif strategy == STRATEGY_ABSENCE_RESOURCE_CLEANUP:
+                        diag_strategy_absence_resource += 1
+
                     if grounded:
                         diag_grounding_valid += 1
                     else:
@@ -204,7 +233,7 @@ def main() -> None:
                 elif reason_type == "clean_pr_false_positive":
                     tn_clean += 1
 
-        evaluation_details.append({
+        detail_item = {
             "candidate_id": candidate_id,
             "branch": branch,
             "source_reviewer": source_reviewer,
@@ -212,7 +241,15 @@ def main() -> None:
             "predicted_verdict": predicted_verdict,
             "status": status,
             "reason_type": reason_type
-        })
+        }
+        if is_v5_evaluation:
+            detail_item.update({
+                "grounding_strategy": grounding_strategy_used,
+                "grounding_valid": grounding_valid_res,
+                "problem_present": prob_present_val,
+                "role_match": role_match_val
+            })
+        evaluation_details.append(detail_item)
 
         if reason_type == "role_leakage":
             role_leakage_candidates.append({
@@ -254,7 +291,10 @@ def main() -> None:
             "Diagnostic role_match=True Count": diag_role_match_true,
             "Diagnostic role_match=False Count": diag_role_match_false,
             "Diagnostic Grounding Valid Count": diag_grounding_valid,
-            "Diagnostic Grounding Invalid Count": diag_grounding_invalid
+            "Diagnostic Grounding Invalid Count": diag_grounding_invalid,
+            "Diagnostic Strategy DIRECT Count": diag_strategy_direct,
+            "Diagnostic Strategy ABSENCE_REFERENCE Count": diag_strategy_absence_ref,
+            "Diagnostic Strategy ABSENCE_RESOURCE_CLEANUP Count": diag_strategy_absence_resource
         })
 
     # Write report
