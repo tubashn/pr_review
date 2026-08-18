@@ -10,6 +10,11 @@ import json
 import re
 from pathlib import Path
 
+# Ensure repo root is on sys.path for direct invocations
+repo_root = Path(__file__).resolve().parent.parent
+if str(repo_root) not in sys.path:
+    sys.path.insert(0, str(repo_root))
+
 
 def clean_raw_response(raw_response: str) -> str:
     cleaned = raw_response.strip()
@@ -79,6 +84,7 @@ def main() -> None:
     diag_strategy_direct = 0
     diag_strategy_absence_ref = 0
     diag_strategy_absence_resource = 0
+    diag_problem_present_bypassed_count = 0
     is_v5_evaluation = False
 
     for candidate in benchmark:
@@ -96,6 +102,7 @@ def main() -> None:
         grounding_valid_res = None
         prob_present_val = None
         role_match_val = None
+        prob_present_bypassed_val = None
 
         # Track expected categories
         if expected_verdict == "ACCEPT":
@@ -153,6 +160,7 @@ def main() -> None:
                     # Deterministic absence-aware grounding verification
                     from verifier_prompt_builder import (
                         verify_grounding_for_candidate,
+                        compute_v5_finding_supported,
                         STRATEGY_DIRECT,
                         STRATEGY_ABSENCE_REFERENCE,
                         STRATEGY_ABSENCE_RESOURCE_CLEANUP
@@ -173,8 +181,14 @@ def main() -> None:
                     else:
                         diag_grounding_invalid += 1
 
-                    # Deterministic composition: finding is supported iff problem present AND grounded AND role matches
-                    final_finding_supported = (prob_present is True and grounded is True and role_match is True)
+                    # V5.3 Deterministic Strategy-Aware Composition
+                    final_finding_supported, prob_present_bypassed = compute_v5_finding_supported(
+                        strategy, prob_present, grounded, role_match
+                    )
+                    prob_present_bypassed_val = prob_present_bypassed
+                    if prob_present_bypassed:
+                        diag_problem_present_bypassed_count += 1
+
                     predicted_verdict = "ACCEPT" if final_finding_supported else "REJECT"
 
                 # Check boolean finding_supported (V4 format)
@@ -247,7 +261,8 @@ def main() -> None:
                 "grounding_strategy": grounding_strategy_used,
                 "grounding_valid": grounding_valid_res,
                 "problem_present": prob_present_val,
-                "role_match": role_match_val
+                "role_match": role_match_val,
+                "problem_present_bypassed": prob_present_bypassed_val
             })
         evaluation_details.append(detail_item)
 
@@ -294,7 +309,8 @@ def main() -> None:
             "Diagnostic Grounding Invalid Count": diag_grounding_invalid,
             "Diagnostic Strategy DIRECT Count": diag_strategy_direct,
             "Diagnostic Strategy ABSENCE_REFERENCE Count": diag_strategy_absence_ref,
-            "Diagnostic Strategy ABSENCE_RESOURCE_CLEANUP Count": diag_strategy_absence_resource
+            "Diagnostic Strategy ABSENCE_RESOURCE_CLEANUP Count": diag_strategy_absence_resource,
+            "Diagnostic Problem Present Bypass Count": diag_problem_present_bypassed_count
         })
 
     # Write report

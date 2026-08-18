@@ -404,6 +404,22 @@ def verify_grounding_for_candidate(problem_text: str, quote: str, added_lines: l
         return valid, STRATEGY_DIRECT
 
 
+def compute_v5_finding_supported(strategy: str, problem_present: bool, grounding_valid: bool, role_match: bool) -> tuple[bool, bool]:
+    """
+    Computes final finding_supported decision for V5 decomposed format.
+    - DIRECT: requires problem_present is True AND grounding_valid is True AND role_match is True. (problem_present_bypassed = False)
+    - ABSENCE_REFERENCE / ABSENCE_RESOURCE_CLEANUP: requires grounding_valid is True AND role_match is True. (problem_present_bypassed = True)
+    Returns: (finding_supported: bool, problem_present_bypassed: bool)
+    """
+    if strategy in (STRATEGY_ABSENCE_REFERENCE, STRATEGY_ABSENCE_RESOURCE_CLEANUP):
+        bypassed = True
+        supported = (grounding_valid is True and role_match is True)
+    else:  # DIRECT or other
+        bypassed = False
+        supported = (problem_present is True and grounding_valid is True and role_match is True)
+    return supported, bypassed
+
+
 def compute_pr_change_metadata(pr_context: str, candidate_file: str, candidate_line: int) -> dict:
     """
     Computes deterministic PR change metadata from structured PR diff context.
