@@ -247,6 +247,8 @@ def main() -> None:
         json.dump(verifier_requests, f, indent=2, ensure_ascii=False)
     with open(script_dir / "verifier_requests_V5_DECOMPOSED_GROUNDED_CLEAN.json", "w", encoding="utf-8") as f:
         json.dump(verifier_requests, f, indent=2, ensure_ascii=False)
+    with open(script_dir / "verifier_requests_V5_2_ABSENCE_SEMANTICS_CLEAN.json", "w", encoding="utf-8") as f:
+        json.dump(verifier_requests, f, indent=2, ensure_ascii=False)
 
     # Print summary reports
     print("\n=========================================")

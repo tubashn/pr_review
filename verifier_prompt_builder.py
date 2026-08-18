@@ -20,12 +20,17 @@ VERIFIER_SYSTEM_PROMPT = (
     "- Bu PR problemi çözüyor mu?\n"
     "- Bu kod merge edilmeli mi?\n"
     "- Genel bir kabul, ret veya doğrulama kararı üretme.\n\n"
-    "DEĞERLENDİRME KURALLARI:\n"
+    "PROBLEM TÜRLERİ VE DEĞERLENDİRME KURALLARI:\n"
     "1. 'problem_present_in_changed_code': Adayın 'problem' alanındaki temel iddia PR'ın değişen/eklenen kodunda fiilen mevcutsa 'true', değilse 'false' olmalıdır.\n"
-    "   - PR'ın yeni bir bug/güvenlik açığı/kusur EKLEMESİ durumunda problem kodda mevcut olduğu için 'true' verilir.\n"
-    "   - PR içindeki kod iddia edilen hatayı/riski ZATEN ÖNLÜYORSA (örneğin kod zaten null-safe ise ve NPE iddia ediliyorsa) veya problem kodda yoksa 'false' verilir.\n"
+    "   Problemler iki şekilde ortaya çıkar:\n"
+    "   a) DOĞRUDAN (DIRECT) PROBLEMLER: Problem belirli bir satırdaki hatalı/kusurlu kodun varlığından kaynaklanır (ör. hardcoded secret, divide by zero, redundant boolean). İlgili [ADDED] satırı problemi doğrudan kanıtlar.\n"
+    "   b) YOKLUK/EKSİKLİK (ABSENCE) PROBLEMLERİ: Problem tek bir satırın varlığından değil, beklenen bir kullanım veya temizleme (cleanup) işleminin scope içinde OLMAMASINDAN kaynaklanır (ör. tanımlanıp hiç kullanılmayan değişken / unused local, açılıp close() edilmeyen stream/resource leak, try-with-resources eksikliği). Bu tür problemlerde tek bir problem satırı aranmaz; anchor (tanımlama/açma) satırı PR ile eklenmişse ve sağlanan context içinde beklenen kullanım/cleanup yoksa problem kodda mevcuttur ('problem_present_in_changed_code: true').\n"
+    "   - PR içindeki kod iddia edilen hatayı/riski ZATEN ÖNLÜYORSA (örneğin kod zaten null-safe ise veya resource close edilmişse) veya problem kodda yoksa 'false' verilir.\n"
     "   - Bu kararı verirken reviewer rolünü dikkate alma; sadece kodda problemin varlığına odaklan.\n"
-    "2. 'problem_evidence_quote': 'problem_present_in_changed_code: true' ise, PR diff içindeki ilgili [ADDED] satırından doğrudan birebir kod alıntısı yapmalısın. Kendi cümlelerinle kod uydurma veya paraphrase etme. Eğer uygun bir [ADDED] satırı kanıtı yoksa 'problem_present_in_changed_code: false' ve 'problem_evidence_quote: null' olmalıdır.\n"
+    "2. 'problem_evidence_quote': 'problem_present_in_changed_code: true' ise, PR diff içindeki ilgili [ADDED] satırından doğrudan birebir kod alıntısı yapmalısın.\n"
+    "   - DIRECT problemlerde: Hatanın/kusurun bulunduğu [ADDED] satırı alıntılanır.\n"
+    "   - ABSENCE problemlerinde: Problemle ilgili ANCHOR satırı (ör. değişkenin tanımlandığı veya kaynağın açıldığı [ADDED] satırı) alıntılanır.\n"
+    "   - Eğer problem kodda yoksa 'problem_present_in_changed_code: false' ve 'problem_evidence_quote: null' olmalıdır. Kendi cümlelerinle kod uydurma veya paraphrase etme.\n"
     "3. 'reviewer_role_matches_problem': Problemin türü, incelemeyi yapan reviewer'ın rolüyle eşleşiyorsa 'true', eşleşmiyorsa (Role Leakage) 'false' olmalıdır.\n"
     "   - correctness_logic: Mantık hataları, off-by-one, null handling, yanlış boolean mantığı, unclosed resource vb.\n"
     "   - security_validation: Hardcoded credentials, authentication, authorization, injection, sensitive data exposure vb.\n"
@@ -33,7 +38,7 @@ VERIFIER_SYSTEM_PROMPT = (
     "4. 'role_evidence': Rol eşleşmesi veya uyumsuzluğu hakkında kısa ve net bir gerekçe yaz.\n"
     "5. Birincil Sinyal (Primary Signal) 'problem' alanıdır. 'failure_scenario' ikincil destekleyici açıklamadır; kötü ifade edilmiş olması tek başına problemi geçersiz kılmaz.\n"
     "6. Geliştiricinin niyetini (intent) veya önerilen fix'in uygulanıp uygulanmadığını değerlendirme.\n\n"
-    "Örnek 1 (Gerçek Problem + Yanlış Rol / Role Leakage):\n"
+    "Örnek 1 (DIRECT Problem + Yanlış Rol / Role Leakage):\n"
     "Aday Bulgu: {\n"
     "  \"file\": \"src/main/java/com/demo/auth/AuthService.java\",\n"
     "  \"line\": 6,\n"
@@ -52,26 +57,69 @@ VERIFIER_SYSTEM_PROMPT = (
     '  "role_evidence": "Hardcoded secret doğrudan bir güvenlik açığıdır; correctness_logic rolüne değil security_validation rolüne aittir.",\n'
     '  "reviewer_role_matches_problem": false\n'
     "}\n\n"
-    "Örnek 2 (Gerçek Problem + Doğru Rol):\n"
+    "Örnek 2 (ABSENCE Problem — Unused Variable):\n"
     "Aday Bulgu: {\n"
-    "  \"file\": \"src/main/java/com/demo/math/Calculator.java\",\n"
-    "  \"line\": 8,\n"
-    "  \"problem\": \"Olası ArithmeticException (Division by Zero) hatası.\",\n"
-    "  \"failure_scenario\": \"Eğer divisor parametresi 0 gönderilirse sıfıra bölme hatası oluşur.\"\n"
+    "  \"file\": \"src/main/java/com/demo/util/Counter.java\",\n"
+    "  \"line\": 12,\n"
+    "  \"problem\": \"Tanımlanan temporaryCount değişkeni aynı metot içinde hiç kullanılmamaktadır (unused variable).\",\n"
+    "  \"failure_scenario\": \"Gereksiz yerel değişken bellek ve kod okunabilirliği israfına yol açar.\"\n"
+    "}\n"
+    "Reviewer Rolü: maintainability\n"
+    "PR Change Metadata: {\"file_change_status\": \"modified\", \"candidate_line_change_type\": \"ADDED\", \"introduced_by_pr\": true}\n"
+    "Kod Değişikliği (PR Diff): \n"
+    "  [ADDED] 12 | int temporaryCount = 7;\n"
+    "  [CONTEXT] 13 | processOrder();\n"
+    "Değerlendirme:\n"
+    "{\n"
+    '  "candidate_id": "example-2",\n'
+    '  "problem_evidence_quote": "int temporaryCount = 7;",\n'
+    '  "problem_present_in_changed_code": true,\n'
+    '  "role_evidence": "Kullanılmayan değişken (unused variable) doğrudan maintainability rolünün kapsamındadır.",\n'
+    '  "reviewer_role_matches_problem": true\n'
+    "}\n\n"
+    "Örnek 3 (ABSENCE Problem — Unclosed Resource):\n"
+    "Aday Bulgu: {\n"
+    "  \"file\": \"src/main/java/com/demo/io/DocumentLoader.java\",\n"
+    "  \"line\": 20,\n"
+    "  \"problem\": \"Açılan BufferedReader kaynağı kapatılmamaktadır (unclosed resource leak).\",\n"
+    "  \"failure_scenario\": \"Stream close edilmediği için dosya tanıtıcısı açık kalabilir ve resource leak oluşabilir.\"\n"
     "}\n"
     "Reviewer Rolü: correctness_logic\n"
     "PR Change Metadata: {\"file_change_status\": \"added\", \"candidate_line_change_type\": \"ADDED\", \"introduced_by_pr\": true}\n"
     "Kod Değişikliği (PR Diff): \n"
-    "  [ADDED] 8 | public int divide(int dividend, int divisor) { return dividend / divisor; }\n"
+    "  [ADDED] 20 | BufferedReader reader = new BufferedReader(new FileReader(path));\n"
+    "  [ADDED] 21 | return reader.readLine();\n"
     "Değerlendirme:\n"
     "{\n"
-    '  "candidate_id": "example-2",\n'
-    '  "problem_evidence_quote": "public int divide(int dividend, int divisor) { return dividend / divisor; }",\n'
+    '  "candidate_id": "example-3",\n'
+    '  "problem_evidence_quote": "BufferedReader reader = new BufferedReader(new FileReader(path));",\n'
     '  "problem_present_in_changed_code": true,\n'
-    '  "role_evidence": "Sıfıra bölme ve mantık hatası riski doğrudan correctness_logic rolünün kapsamındadır.",\n'
+    '  "role_evidence": "Açılan kaynağın kapatılmaması mantık/kaynak yönetimi hatasıdır ve correctness_logic rolüne uygundur.",\n'
     '  "reviewer_role_matches_problem": true\n'
     "}\n\n"
-    "Örnek 3 (Olmayan / Önlenmiş Problem):\n"
+    "Örnek 4 (ABSENCE Negative — Kaynak Kapatılmış / Problem Yok):\n"
+    "Aday Bulgu: {\n"
+    "  \"file\": \"src/main/java/com/demo/io/DataHandler.java\",\n"
+    "  \"line\": 15,\n"
+    "  \"problem\": \"Stream kaynağı kapatılmamış, resource leak riski var.\",\n"
+    "  \"failure_scenario\": \"Stream açık kalırsa kaynak sızıntısı oluşur.\"\n"
+    "}\n"
+    "Reviewer Rolü: correctness_logic\n"
+    "PR Change Metadata: {\"file_change_status\": \"added\", \"candidate_line_change_type\": \"ADDED\", \"introduced_by_pr\": true}\n"
+    "Kod Değişikliği (PR Diff): \n"
+    "  [ADDED] 15 | InputStream stream = new FileInputStream(file);\n"
+    "  [ADDED] 16 | byte[] data = stream.readAllBytes();\n"
+    "  [ADDED] 17 | stream.close();\n"
+    "  [ADDED] 18 | return data;\n"
+    "Değerlendirme:\n"
+    "{\n"
+    '  "candidate_id": "example-4",\n'
+    '  "problem_evidence_quote": null,\n'
+    '  "problem_present_in_changed_code": false,\n'
+    '  "role_evidence": "Kod incelendiğinde stream.close() çağrısı ile kaynağın düzgün şekilde kapatıldığı görülmektedir, problem mevcut değildir.",\n'
+    '  "reviewer_role_matches_problem": true\n'
+    "}\n\n"
+    "Örnek 5 (Olmayan / Önlenmiş Problem — NPE Guard):\n"
     "Aday Bulgu: {\n"
     "  \"file\": \"src/main/java/com/demo/util/TextUtil.java\",\n"
     "  \"line\": 6,\n"
@@ -84,7 +132,7 @@ VERIFIER_SYSTEM_PROMPT = (
     "  [ADDED] 6 | return str == null ? null : str.trim();\n"
     "Değerlendirme:\n"
     "{\n"
-    '  "candidate_id": "example-3",\n'
+    '  "candidate_id": "example-5",\n'
     '  "problem_evidence_quote": null,\n'
     '  "problem_present_in_changed_code": false,\n'
     '  "role_evidence": "Kod zaten ternary operatörü ile null kontrolü yapmaktadır, dolayısıyla iddia edilen NPE problemi kodda mevcut değildir.",\n'
