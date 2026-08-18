@@ -69,12 +69,22 @@ def main() -> None:
     # Map results by candidate_id
     results_map = {r["candidate_id"]: r for r in results}
 
+    # Track V5 diagnostic metrics
+    diag_problem_present_true = 0
+    diag_problem_present_false = 0
+    diag_role_match_true = 0
+    diag_role_match_false = 0
+    diag_grounding_valid = 0
+    diag_grounding_invalid = 0
+    is_v5_evaluation = False
+
     for candidate in benchmark:
         candidate_id = candidate["candidate_id"]
         branch = candidate["branch"]
         source_reviewer = candidate["source_reviewer"]
         expected_verdict = candidate["expected_verdict"]
         reason_type = candidate["expected_reason_type"]
+        added_lines = candidate.get("added_lines_for_grounding", [])
 
         # Track expected categories
         if expected_verdict == "ACCEPT":
@@ -104,28 +114,59 @@ def main() -> None:
 
                 predicted_verdict = None
 
+                # Check V5 Decomposed format
+                if "problem_present_in_changed_code" in parsed or "reviewer_role_matches_problem" in parsed:
+                    is_v5_evaluation = True
+                    prob_present = parsed.get("problem_present_in_changed_code")
+                    role_match = parsed.get("reviewer_role_matches_problem")
+                    quote = parsed.get("problem_evidence_quote")
+
+                    if not isinstance(prob_present, bool):
+                        raise ValueError(f"problem_present_in_changed_code must be strict boolean, got: {repr(prob_present)} ({type(prob_present).__name__})")
+                    if not isinstance(role_match, bool):
+                        raise ValueError(f"reviewer_role_matches_problem must be strict boolean, got: {repr(role_match)} ({type(role_match).__name__})")
+
+                    if prob_present:
+                        diag_problem_present_true += 1
+                    else:
+                        diag_problem_present_false += 1
+
+                    if role_match:
+                        diag_role_match_true += 1
+                    else:
+                        diag_role_match_false += 1
+
+                    # Deterministic grounding verification
+                    from verifier_prompt_builder import is_grounded_problem_evidence
+                    grounded = is_grounded_problem_evidence(quote, added_lines)
+                    if grounded:
+                        diag_grounding_valid += 1
+                    else:
+                        diag_grounding_invalid += 1
+
+                    # Deterministic composition: finding is supported iff problem present AND grounded AND role matches
+                    final_finding_supported = (prob_present is True and grounded is True and role_match is True)
+                    predicted_verdict = "ACCEPT" if final_finding_supported else "REJECT"
+
                 # Check boolean finding_supported (V4 format)
-                if "finding_supported" in parsed:
+                elif "finding_supported" in parsed:
                     fs = parsed.get("finding_supported")
                     if not isinstance(fs, bool):
                         raise ValueError(f"finding_supported must be a strict boolean (True/False), got: {repr(fs)} ({type(fs).__name__})")
                     predicted_verdict = "ACCEPT" if fs is True else "REJECT"
 
-                # Check legacy verdict string (V1-V3 format)
-                if "verdict" in parsed:
+                # Check legacy verdict string (V1-V3, V4.1 format)
+                elif "verdict" in parsed:
                     raw_v = parsed.get("verdict")
                     if not isinstance(raw_v, str):
                         raise ValueError(f"verdict must be a string, got: {repr(raw_v)}")
                     v_str = raw_v.strip().upper()
                     if v_str not in ["ACCEPT", "REJECT"]:
                         raise ValueError(f"Invalid verdict value: {v_str}")
-                    
-                    if predicted_verdict is not None and predicted_verdict != v_str:
-                        raise ValueError(f"Conflicting fields: finding_supported resolves to {predicted_verdict} but verdict is {v_str}")
                     predicted_verdict = v_str
 
                 if predicted_verdict is None:
-                    raise ValueError("Neither 'finding_supported' (boolean) nor 'verdict' (ACCEPT/REJECT) found in response")
+                    raise ValueError("Could not extract verdict: Neither V5 atomic fields, finding_supported, nor verdict found")
 
             except Exception as e:
                 parse_error_count += 1
@@ -205,6 +246,16 @@ def main() -> None:
         "Clean PR False Finding Rejection Rate": clean_rejection_rate,
         "Parse Error Count": parse_error_count
     }
+
+    if is_v5_evaluation:
+        metrics.update({
+            "Diagnostic problem_present=True Count": diag_problem_present_true,
+            "Diagnostic problem_present=False Count": diag_problem_present_false,
+            "Diagnostic role_match=True Count": diag_role_match_true,
+            "Diagnostic role_match=False Count": diag_role_match_false,
+            "Diagnostic Grounding Valid Count": diag_grounding_valid,
+            "Diagnostic Grounding Invalid Count": diag_grounding_invalid
+        })
 
     # Write report
     report = {

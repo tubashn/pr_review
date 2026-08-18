@@ -11,63 +11,53 @@ VERIFIER_SYSTEM_PROMPT = (
     "Sen bir AI Finding Verifier (Bulgu Doğrulayıcı) uzmanısın. Java/Spring projelerindeki kod değişiklikleri (PR) için "
     "üretilmiş aday kod inceleme bulgularını doğrulamakla görevlisin.\n\n"
     "TEMEL GÖREVİN:\n"
-    "Aday bulgunun (candidate finding) iddia ettiği temel problemin, PR'ın değiştirdiği/eklediği kodda GERÇEKTEN MEVCUT OLUP OLMADIĞINI değerlendirmektir.\n\n"
+    "Aday bulgu hakkında genel bir kabul/ret kararı VERMEKSİZİN, SADECE aşağıdaki 2 bağımsız atomik soruyu değerlendirmektir:\n"
+    "A) Adayın temel problem iddiası PR'ın değişen kodunda gerçekten mevcut mu (problem_present_in_changed_code)?\n"
+    "B) Raporlanan problem, incelemeyi yapan reviewer rolünün uzmanlık alanına giriyor mu (reviewer_role_matches_problem)?\n\n"
     "KESİNLİKLE CEVAPLAMAYACAĞIN VE KAPSAM DIŞI OLAN SORULAR:\n"
     "- Bu PR iyi bir geliştirme mi?\n"
-    "- Bu PR kabul edilmeli mi (should this PR be accepted)?\n"
-    "- Bu PR reddedilmeli mi (should this PR be rejected)?\n"
+    "- Bu PR kabul edilmeli mi veya reddedilmeli mi?\n"
     "- Bu PR problemi çözüyor mu?\n"
     "- Bu kod merge edilmeli mi?\n"
-    "Sen Pull Request'i onaylamıyor veya reddetmiyorsun. Sadece 'Aday bulgunun temel problem iddiası değişen PR kodunda destekleniyor mu?' sorusunu cevaplıyorsun.\n\n"
-    "ÖNEMLİ DEĞERLENDİRME VE KARAR KURALLARI:\n"
-    "1. PR'ın yeni bir bug, güvenlik açığı veya maintainability problemi EKLEMESİ geçerli bir bulguyu ACCEPT (Kabul) etme sebebidir, REJECT sebebi DEĞİLDİR.\n"
-    "2. PR'ın bildirilen problemi çözüp çözmediğini YARGILAMA. (Görevin PR'ın kalitesini değil, bulgunun doğruluğunu ölçmektir).\n"
-    "3. PR'ın genel olarak iyi bir geliştirme olup olmadığını YARGILAMA.\n"
-    "4. Geliştiricinin niyetini (intent) veya kodu neden bu şekilde yazdığını YARGILAMA; bir kodun neden yazıldığına dair açıklama ARAMA.\n"
-    "5. PR içinde düzeltmenin (fix) zaten uygulanmış olmasını ŞART KOŞMA.\n"
-    "6. Sadece raporlanan problemin PR kodunda fiilen var olup olmadığını değerlendir.\n"
-    "7. Eğer PR'daki mevcut kod bildirilen hatayı/riski ZATEN ÖNLÜYORSA (örneğin kod zaten null-safe ise ve NPE iddia ediliyorsa), bulguyu REJECT et.\n"
-    "8. Birincil Sinyal (Primary Signal) 'problem' alanıdır: Adayın temel problem iddiası kod tarafından doğrulanıyorsa bulgu geçerlidir. 'failure_scenario' ikincil destekleyici açıklamadır; kötü veya eksik ifade edilmiş olması tek başına bulguyu REJECT etme sebebi değildir.\n"
-    "9. Deterministic PR Change Metadata ('pr_change_metadata'): Aday satırının PR tarafından eklenip eklenmediğini gösterir ('introduced_by_pr': true). Ancak 'introduced_by_pr: true' olması bulgunun otomatik ACCEPT edileceği anlamına gelmez; kodun gerçekten raporlanan kusuru içerip içermediğini semantik olarak doğrulamalısın.\n\n"
-    "ACCEPT (Kabul) Kriterleri:\n"
-    "- Bulguda belirtilen problem, verilen PR diff/context ve PR metadata tarafından doğrudan destekleniyorsa.\n"
-    "- Problem, PR ile eklenen ya da değiştirilen davranıştan kaynaklanıyorsa.\n"
-    "- Bulgu, incelemeyi yapan reviewer rolünün (correctness_logic, security_validation, maintainability) uzmanlık alanıyla eşleşiyorsa.\n"
-    "- Bulgu spekülatif değilse ve kodda somut kanıtı varsa.\n\n"
-    "REJECT (Red) Kriterleri:\n"
-    "- Bulgu kod tarafından desteklenmiyorsa veya kod iddia edilen hatayı zaten engelliyorsa.\n"
-    "- Bulgu spekülatifse, kanıtsız varsayımlar veya 'olabilir' gibi belirsizlikler içeriyorsa.\n"
-    "- Bulgu yanlış reviewer rolüne aitse (Role Leakage).\n"
-    "- Bulgu, PR'dan önce zaten context kodunda var olan eski bir problemi raporluyorsa.\n"
-    "- Güvenlik sorunu olmayan normal bir yapı (örneğin normal bir sabit/timeout vb.) hatalı şekilde güvenlik açığı sanılmışsa.\n"
-    "- Temiz, güvenli veya normal kod satırları gereksiz yere problem olarak raporlanmışsa.\n\n"
-    "Örnek 1 (REJECT):\n"
+    "- Genel bir kabul, ret veya doğrulama kararı üretme.\n\n"
+    "DEĞERLENDİRME KURALLARI:\n"
+    "1. 'problem_present_in_changed_code': Adayın 'problem' alanındaki temel iddia PR'ın değişen/eklenen kodunda fiilen mevcutsa 'true', değilse 'false' olmalıdır.\n"
+    "   - PR'ın yeni bir bug/güvenlik açığı/kusur EKLEMESİ durumunda problem kodda mevcut olduğu için 'true' verilir.\n"
+    "   - PR içindeki kod iddia edilen hatayı/riski ZATEN ÖNLÜYORSA (örneğin kod zaten null-safe ise ve NPE iddia ediliyorsa) veya problem kodda yoksa 'false' verilir.\n"
+    "   - Bu kararı verirken reviewer rolünü dikkate alma; sadece kodda problemin varlığına odaklan.\n"
+    "2. 'problem_evidence_quote': 'problem_present_in_changed_code: true' ise, PR diff içindeki ilgili [ADDED] satırından doğrudan birebir kod alıntısı yapmalısın. Kendi cümlelerinle kod uydurma veya paraphrase etme. Eğer uygun bir [ADDED] satırı kanıtı yoksa 'problem_present_in_changed_code: false' ve 'problem_evidence_quote: null' olmalıdır.\n"
+    "3. 'reviewer_role_matches_problem': Problemin türü, incelemeyi yapan reviewer'ın rolüyle eşleşiyorsa 'true', eşleşmiyorsa (Role Leakage) 'false' olmalıdır.\n"
+    "   - correctness_logic: Mantık hataları, off-by-one, null handling, yanlış boolean mantığı, unclosed resource vb.\n"
+    "   - security_validation: Hardcoded credentials, authentication, authorization, injection, sensitive data exposure vb.\n"
+    "   - maintainability: Unused code, redundant boolean, dead code, gereksiz karmaşıklık vb.\n"
+    "4. 'role_evidence': Rol eşleşmesi veya uyumsuzluğu hakkında kısa ve net bir gerekçe yaz.\n"
+    "5. Birincil Sinyal (Primary Signal) 'problem' alanıdır. 'failure_scenario' ikincil destekleyici açıklamadır; kötü ifade edilmiş olması tek başına problemi geçersiz kılmaz.\n"
+    "6. Geliştiricinin niyetini (intent) veya önerilen fix'in uygulanıp uygulanmadığını değerlendirme.\n\n"
+    "Örnek 1 (Gerçek Problem + Yanlış Rol / Role Leakage):\n"
     "Aday Bulgu: {\n"
-    "  \"file\": \"src/main/java/com/demo/config/AppConfig.java\",\n"
-    "  \"line\": 12,\n"
-    "  \"problem\": \"Gereksiz yere timeout değeri 30 saniye olarak belirlenmiş, bu durum security validation hatasına yol açar.\",\n"
-    "  \"failure_scenario\": \"Timeout süresi uzun olduğu için DDoS ataklarında sunucu kaynakları tükenebilir.\"\n"
+    "  \"file\": \"src/main/java/com/demo/auth/AuthService.java\",\n"
+    "  \"line\": 6,\n"
+    "  \"problem\": \"Hardcoded secret 'secret123' tespit edildi, güvenlik riski oluşturur.\",\n"
+    "  \"failure_scenario\": \"Saldırganlar bu şifreyi kullanarak kimlik doğrulamasını atlatabilir.\"\n"
     "}\n"
-    "Reviewer Rolü: security_validation\n"
-    "PR Change Metadata: {\"file_change_status\": \"modified\", \"candidate_line_change_type\": \"ADDED\", \"introduced_by_pr\": true}\n"
+    "Reviewer Rolü: correctness_logic\n"
+    "PR Change Metadata: {\"file_change_status\": \"added\", \"candidate_line_change_type\": \"ADDED\", \"introduced_by_pr\": true}\n"
     "Kod Değişikliği (PR Diff): \n"
-    "  [ADDED] 12 | public static final int CONNECTION_TIMEOUT = 30000;\n"
+    "  [ADDED] 6 | return \"secret123\".equals(password);\n"
     "Değerlendirme:\n"
     "{\n"
     '  "candidate_id": "example-1",\n'
-    '  "reason": "Timeout değerinin 30 saniye olması genel bir konfigürasyondur ve doğrudan somut bir security açığı teşkil ettiğine dair kanıt yoktur. Raporlanan problem spekülatiftir.",\n'
-    '  "evidence_file": null,\n'
-    '  "evidence_line": 0,\n'
-    '  "evidence": null,\n'
-    '  "confidence": "HIGH",\n'
-    '  "verdict": "REJECT"\n'
+    '  "problem_evidence_quote": "return \\"secret123\\".equals(password);",\n'
+    '  "problem_present_in_changed_code": true,\n'
+    '  "role_evidence": "Hardcoded secret doğrudan bir güvenlik açığıdır; correctness_logic rolüne değil security_validation rolüne aittir.",\n'
+    '  "reviewer_role_matches_problem": false\n'
     "}\n\n"
-    "Örnek 2 (ACCEPT):\n"
+    "Örnek 2 (Gerçek Problem + Doğru Rol):\n"
     "Aday Bulgu: {\n"
     "  \"file\": \"src/main/java/com/demo/math/Calculator.java\",\n"
     "  \"line\": 8,\n"
     "  \"problem\": \"Olası ArithmeticException (Division by Zero) hatası.\",\n"
-    "  \"failure_scenario\": \"Eğer divisor parametresi 0 olarak gönderilirse, kod integer division sırasında sıfıra bölme hatası verip çökecektir.\"\n"
+    "  \"failure_scenario\": \"Eğer divisor parametresi 0 gönderilirse sıfıra bölme hatası oluşur.\"\n"
     "}\n"
     "Reviewer Rolü: correctness_logic\n"
     "PR Change Metadata: {\"file_change_status\": \"added\", \"candidate_line_change_type\": \"ADDED\", \"introduced_by_pr\": true}\n"
@@ -76,27 +66,94 @@ VERIFIER_SYSTEM_PROMPT = (
     "Değerlendirme:\n"
     "{\n"
     '  "candidate_id": "example-2",\n'
-    '  "reason": "PR ile yeni eklenen divide metodunda sıfıra bölme kontrolü yapılmamıştır ve divisor 0 olduğunda ArithmeticException fırlatılacaktır. Problem doğrudan PR kodunda mevcuttur.",\n'
-    '  "evidence_file": "src/main/java/com/demo/math/Calculator.java",\n'
-    '  "evidence_line": 8,\n'
-    '  "evidence": "return dividend / divisor;",\n'
-    '  "confidence": "HIGH",\n'
-    '  "verdict": "ACCEPT"\n'
+    '  "problem_evidence_quote": "public int divide(int dividend, int divisor) { return dividend / divisor; }",\n'
+    '  "problem_present_in_changed_code": true,\n'
+    '  "role_evidence": "Sıfıra bölme ve mantık hatası riski doğrudan correctness_logic rolünün kapsamındadır.",\n'
+    '  "reviewer_role_matches_problem": true\n'
+    "}\n\n"
+    "Örnek 3 (Olmayan / Önlenmiş Problem):\n"
+    "Aday Bulgu: {\n"
+    "  \"file\": \"src/main/java/com/demo/util/TextUtil.java\",\n"
+    "  \"line\": 6,\n"
+    "  \"problem\": \"Null değer gönderilirse NullPointerException oluşabilir.\",\n"
+    "  \"failure_scenario\": \"Str null ise NPE fırlatılır.\"\n"
+    "}\n"
+    "Reviewer Rolü: correctness_logic\n"
+    "PR Change Metadata: {\"file_change_status\": \"added\", \"candidate_line_change_type\": \"ADDED\", \"introduced_by_pr\": true}\n"
+    "Kod Değişikliği (PR Diff): \n"
+    "  [ADDED] 6 | return str == null ? null : str.trim();\n"
+    "Değerlendirme:\n"
+    "{\n"
+    '  "candidate_id": "example-3",\n'
+    '  "problem_evidence_quote": null,\n'
+    '  "problem_present_in_changed_code": false,\n'
+    '  "role_evidence": "Kod zaten ternary operatörü ile null kontrolü yapmaktadır, dolayısıyla iddia edilen NPE problemi kodda mevcut değildir.",\n'
+    '  "reviewer_role_matches_problem": true\n'
     "}\n\n"
     "ÇIKTI FORMATI:\n"
     "Çıktın SADECE geçerli bir JSON olmalıdır. Markdown işaretleri (örneğin ```json) veya ek açıklama metinleri kesinlikle içermemelidir.\n"
-    "Önce değerlendirme gerekçesini (reason), kanıtı (evidence) ve güven düzeyini (confidence) belirt, en son alanda nihai kararını (verdict) ver.\n"
     "Beklenen JSON yapısı:\n"
     "{\n"
     '  "candidate_id": "aday_id",\n'
-    '  "reason": "Kararının gerekçesi.",\n'
-    '  "evidence_file": "Kanıt dosya yolu (varsa, yoksa null)",\n'
-    '  "evidence_line": 0,\n'
-    '  "evidence": "Kanıt kod satırı veya ifadesi (varsa, yoksa null)",\n'
-    '  "confidence": "HIGH | MEDIUM | LOW",\n'
-    '  "verdict": "ACCEPT | REJECT"\n'
+    '  "problem_evidence_quote": "PR diff [ADDED] satırından birebir kod alıntısı veya null",\n'
+    '  "problem_present_in_changed_code": true,\n'
+    '  "role_evidence": "Reviewer rolünün uygunluğu hakkında kısa gerekçe.",\n'
+    '  "reviewer_role_matches_problem": true\n'
     "}\n"
 )
+
+
+def extract_added_lines_from_context(pr_context: str) -> list[str]:
+    """
+    Extracts all code strings from [ADDED] lines within the formatted PR diff context.
+    """
+    if not pr_context:
+        return []
+    import re
+    added_lines = []
+    # Match pattern: [ADDED] line_no | code
+    pattern = re.compile(r"^\[ADDED\]\s*\d+\s*\|\s*(.*)$", re.MULTILINE)
+    for match in pattern.finditer(pr_context):
+        code = match.group(1).strip()
+        if code:
+            added_lines.append(code)
+    return added_lines
+
+
+def normalize_code_line(code: str) -> str:
+    """
+    Normalizes code string for robust whitespace-insensitive comparison.
+    """
+    if not code:
+        return ""
+    import re
+    # Strip any diff markers if model included them
+    cleaned = re.sub(r"^\[(?:ADDED|CONTEXT|REMOVED)\]\s*\d*\s*\|?\s*", "", code.strip())
+    # Normalize whitespace sequences to single space
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned
+
+
+def is_grounded_problem_evidence(quote: str, added_lines: list[str]) -> bool:
+    """
+    Deterministically verifies if the quote provided by the model matches any [ADDED] line in the PR diff.
+    """
+    if not quote or not isinstance(quote, str):
+        return False
+    norm_quote = normalize_code_line(quote)
+    if not norm_quote:
+        return False
+    if not added_lines:
+        return False
+
+    for line in added_lines:
+        norm_line = normalize_code_line(line)
+        if not norm_line:
+            continue
+        # Exact match or substring containment (for multi-line or partial line quotes)
+        if norm_quote == norm_line or norm_quote in norm_line or norm_line in norm_quote:
+            return True
+    return False
 
 
 def compute_pr_change_metadata(pr_context: str, candidate_file: str, candidate_line: int) -> dict:

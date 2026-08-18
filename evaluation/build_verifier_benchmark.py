@@ -203,6 +203,10 @@ def main() -> None:
             from verifier_prompt_builder import compute_pr_change_metadata
             pr_metadata = compute_pr_change_metadata(pr_context, f.get("file", ""), f.get("line"))
 
+            # Extract added lines for deterministic grounding verification
+            from verifier_prompt_builder import extract_added_lines_from_context
+            added_lines = extract_added_lines_from_context(pr_context)
+
             # Build candidate record
             candidate = {
                 "candidate_id": candidate_id,
@@ -210,6 +214,7 @@ def main() -> None:
                 "source_reviewer": reviewer,
                 "candidate_finding": f,
                 "pr_change_metadata": pr_metadata,
+                "added_lines_for_grounding": added_lines,
                 "pr_context": pr_context,
                 "expected_verdict": expected_verdict,
                 "expected_finding_supported": (expected_verdict == "ACCEPT"),
@@ -240,7 +245,7 @@ def main() -> None:
         json.dump(verifier_candidates, f, indent=2, ensure_ascii=False)
     with open(script_dir / "verifier_requests.json", "w", encoding="utf-8") as f:
         json.dump(verifier_requests, f, indent=2, ensure_ascii=False)
-    with open(script_dir / "verifier_requests_V4_1_ORDERING_CLEAN.json", "w", encoding="utf-8") as f:
+    with open(script_dir / "verifier_requests_V5_DECOMPOSED_GROUNDED_CLEAN.json", "w", encoding="utf-8") as f:
         json.dump(verifier_requests, f, indent=2, ensure_ascii=False)
 
     # Print summary reports
