@@ -404,20 +404,68 @@ def verify_grounding_for_candidate(problem_text: str, quote: str, added_lines: l
         return valid, STRATEGY_DIRECT
 
 
-def compute_v5_finding_supported(strategy: str, problem_present: bool, grounding_valid: bool, role_match: bool) -> tuple[bool, bool]:
+# Canonical Issue Kinds for Deterministic Role Gating
+CANONICAL_ISSUE_UNUSED_LOCAL = "UNUSED_LOCAL"
+CANONICAL_ISSUE_UNCLOSED_RESOURCE = "UNCLOSED_RESOURCE"
+CANONICAL_ISSUE_DIRECT = "DIRECT_ISSUE"
+
+# Strategy to Canonical Issue Kind Mapping
+STRATEGY_CANONICAL_ISSUE_MAP = {
+    STRATEGY_ABSENCE_REFERENCE: CANONICAL_ISSUE_UNUSED_LOCAL,
+    STRATEGY_ABSENCE_RESOURCE_CLEANUP: CANONICAL_ISSUE_UNCLOSED_RESOURCE,
+    STRATEGY_DIRECT: CANONICAL_ISSUE_DIRECT
+}
+
+# Canonical Issue Kind to Allowed Reviewer Roles Mapping
+CANONICAL_ISSUE_ALLOWED_ROLES = {
+    CANONICAL_ISSUE_UNUSED_LOCAL: {"maintainability"},
+    CANONICAL_ISSUE_UNCLOSED_RESOURCE: {"correctness_logic"}
+}
+
+
+def get_deterministic_canonical_issue_kind(strategy: str) -> str:
+    """
+    Returns the canonical issue kind for a given grounding strategy.
+    """
+    return STRATEGY_CANONICAL_ISSUE_MAP.get(strategy, CANONICAL_ISSUE_DIRECT)
+
+
+def is_deterministic_role_compatible(canonical_issue_kind: str, source_reviewer: str) -> bool:
+    """
+    Checks if the source reviewer role is canonically compatible with the deterministic issue kind.
+    For DIRECT issues, returns True (role compatibility is evaluated by the LLM / direct rules).
+    """
+    if not source_reviewer:
+        return False
+    allowed_roles = CANONICAL_ISSUE_ALLOWED_ROLES.get(canonical_issue_kind)
+    if allowed_roles is None:
+        return True
+    return source_reviewer.strip().lower() in allowed_roles
+
+
+def compute_v5_finding_supported(
+    strategy: str,
+    problem_present: bool,
+    grounding_valid: bool,
+    role_match: bool,
+    source_reviewer: str = ""
+) -> tuple[bool, bool, str, bool]:
     """
     Computes final finding_supported decision for V5 decomposed format.
-    - DIRECT: requires problem_present is True AND grounding_valid is True AND role_match is True. (problem_present_bypassed = False)
-    - ABSENCE_REFERENCE / ABSENCE_RESOURCE_CLEANUP: requires grounding_valid is True AND role_match is True. (problem_present_bypassed = True)
-    Returns: (finding_supported: bool, problem_present_bypassed: bool)
+    - DIRECT: requires problem_present is True AND grounding_valid is True AND role_match is True. (bypassed = False)
+    - ABSENCE_REFERENCE / ABSENCE_RESOURCE_CLEANUP: requires grounding_valid is True AND role_match is True AND deterministic_role_compatible is True. (bypassed = True)
+    Returns: (finding_supported: bool, problem_present_bypassed: bool, canonical_issue_kind: str, deterministic_role_compatible: bool)
     """
+    canonical_issue_kind = get_deterministic_canonical_issue_kind(strategy)
+    role_compatible = is_deterministic_role_compatible(canonical_issue_kind, source_reviewer)
+
     if strategy in (STRATEGY_ABSENCE_REFERENCE, STRATEGY_ABSENCE_RESOURCE_CLEANUP):
         bypassed = True
-        supported = (grounding_valid is True and role_match is True)
+        supported = (grounding_valid is True and role_match is True and role_compatible is True)
     else:  # DIRECT or other
         bypassed = False
         supported = (problem_present is True and grounding_valid is True and role_match is True)
-    return supported, bypassed
+    return supported, bypassed, canonical_issue_kind, role_compatible
 
 
 def compute_pr_change_metadata(pr_context: str, candidate_file: str, candidate_line: int) -> dict:
