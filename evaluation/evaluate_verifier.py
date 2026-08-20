@@ -87,6 +87,7 @@ def main() -> None:
     diag_problem_present_bypassed_count = 0
     diag_det_role_compatible_count = 0
     diag_det_role_mismatch_count = 0
+    diag_ast_self_refuted_count = 0
     is_v5_evaluation = False
 
     for candidate in benchmark:
@@ -107,6 +108,8 @@ def main() -> None:
         prob_present_bypassed_val = None
         canonical_issue_kind_val = None
         deterministic_role_compatible_val = None
+        is_self_refuted_val = False
+        self_refutation_reason_val = "NOT_SELF_REFUTED"
 
         # Track expected categories
         if expected_verdict == "ACCEPT":
@@ -185,13 +188,15 @@ def main() -> None:
                     else:
                         diag_grounding_invalid += 1
 
-                    # V5.3a Deterministic Strategy-Aware Composition with Role Gate
-                    final_finding_supported, prob_present_bypassed, canonical_issue_kind, det_role_compatible = compute_v5_finding_supported(
-                        strategy, prob_present, grounded, role_match, source_reviewer
+                    # Tier 2/3: AST-based Polarity & Role-Gated Composition
+                    final_finding_supported, prob_present_bypassed, canonical_issue_kind, det_role_compatible, is_self_refuted, self_refutation_reason = compute_v5_finding_supported(
+                        strategy, prob_present, grounded, role_match, source_reviewer, cand_problem, pr_context
                     )
                     prob_present_bypassed_val = prob_present_bypassed
                     canonical_issue_kind_val = canonical_issue_kind
                     deterministic_role_compatible_val = det_role_compatible
+                    is_self_refuted_val = is_self_refuted
+                    self_refutation_reason_val = self_refutation_reason
 
                     if prob_present_bypassed:
                         diag_problem_present_bypassed_count += 1
@@ -199,6 +204,8 @@ def main() -> None:
                         diag_det_role_compatible_count += 1
                     else:
                         diag_det_role_mismatch_count += 1
+                    if is_self_refuted:
+                        diag_ast_self_refuted_count += 1
 
                     predicted_verdict = "ACCEPT" if final_finding_supported else "REJECT"
 
@@ -275,7 +282,9 @@ def main() -> None:
                 "role_match": role_match_val,
                 "problem_present_bypassed": prob_present_bypassed_val,
                 "canonical_issue_kind": canonical_issue_kind_val,
-                "deterministic_role_compatible": deterministic_role_compatible_val
+                "deterministic_role_compatible": deterministic_role_compatible_val,
+                "is_self_refuted": is_self_refuted_val,
+                "self_refutation_reason": self_refutation_reason_val
             })
         evaluation_details.append(detail_item)
 
@@ -325,7 +334,8 @@ def main() -> None:
             "Diagnostic Strategy ABSENCE_RESOURCE_CLEANUP Count": diag_strategy_absence_resource,
             "Diagnostic Problem Present Bypass Count": diag_problem_present_bypassed_count,
             "Diagnostic Deterministic Role Compatible Count": diag_det_role_compatible_count,
-            "Diagnostic Deterministic Role Mismatch Count": diag_det_role_mismatch_count
+            "Diagnostic Deterministic Role Mismatch Count": diag_det_role_mismatch_count,
+            "Diagnostic AST Self-Refuted Count": diag_ast_self_refuted_count
         })
 
     # Write report

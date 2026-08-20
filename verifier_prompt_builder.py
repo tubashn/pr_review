@@ -448,24 +448,39 @@ def compute_v5_finding_supported(
     problem_present: bool,
     grounding_valid: bool,
     role_match: bool,
-    source_reviewer: str = ""
-) -> tuple[bool, bool, str, bool]:
+    source_reviewer: str = "",
+    problem_text: str = "",
+    code_context: str = ""
+) -> tuple[bool, bool, str, bool, bool, str]:
     """
     Computes final finding_supported decision for V5 decomposed format.
-    - DIRECT: requires problem_present is True AND grounding_valid is True AND role_match is True. (bypassed = False)
-    - ABSENCE_REFERENCE / ABSENCE_RESOURCE_CLEANUP: requires grounding_valid is True AND role_match is True AND deterministic_role_compatible is True. (bypassed = True)
-    Returns: (finding_supported: bool, problem_present_bypassed: bool, canonical_issue_kind: str, deterministic_role_compatible: bool)
+    - Tier 2 / 3 AST Self-Refutation Gate: If AST proves code safely guards against claimed NPE, vetoes finding -> REJECT (self_refuted = True)
+    - DIRECT: requires problem_present is True AND grounding_valid is True AND role_match is True AND NOT self_refuted. (bypassed = False)
+    - ABSENCE_REFERENCE / ABSENCE_RESOURCE_CLEANUP: requires grounding_valid is True AND role_match is True AND deterministic_role_compatible is True AND NOT self_refuted. (bypassed = True)
+    Returns: (finding_supported: bool, problem_present_bypassed: bool, canonical_issue_kind: str, deterministic_role_compatible: bool, is_self_refuted: bool, self_refutation_reason: str)
     """
+    from java_ast_analyzer import verify_null_safety_self_refutation
+
     canonical_issue_kind = get_deterministic_canonical_issue_kind(strategy)
     role_compatible = is_deterministic_role_compatible(canonical_issue_kind, source_reviewer)
 
-    if strategy in (STRATEGY_ABSENCE_REFERENCE, STRATEGY_ABSENCE_RESOURCE_CLEANUP):
+    # Check AST null safety self-refutation (veto-only)
+    is_self_refuted = False
+    self_refutation_reason = "NOT_SELF_REFUTED"
+    if problem_text and code_context:
+        is_self_refuted, self_refutation_reason = verify_null_safety_self_refutation(problem_text, code_context)
+
+    if is_self_refuted:
+        supported = False
+        bypassed = False
+    elif strategy in (STRATEGY_ABSENCE_REFERENCE, STRATEGY_ABSENCE_RESOURCE_CLEANUP):
         bypassed = True
         supported = (grounding_valid is True and role_match is True and role_compatible is True)
     else:  # DIRECT or other
         bypassed = False
         supported = (problem_present is True and grounding_valid is True and role_match is True)
-    return supported, bypassed, canonical_issue_kind, role_compatible
+        
+    return supported, bypassed, canonical_issue_kind, role_compatible, is_self_refuted, self_refutation_reason
 
 
 def compute_pr_change_metadata(pr_context: str, candidate_file: str, candidate_line: int) -> dict:
