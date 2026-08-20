@@ -1,0 +1,364 @@
+{
+  "scenarios": {
+    "BV2-001": {
+      "category": "DIRECT",
+      "has_issue": true,
+      "expected_role": "correctness_logic",
+      "explanation": "Condition check 'availableQuantity >= 0 || availableQuantity < 0' is a tautology that always evaluates to true, bypassing threshold checks.",
+      "evidence": [
+        "return availableQuantity >= 0 || availableQuantity < 0;"
+      ]
+    },
+    "BV2-002": {
+      "category": "DIRECT",
+      "has_issue": true,
+      "expected_role": "security_validation",
+      "explanation": "PR introduces hardcoded internal webhook secret token 'whsec_prod_99x817aAzK0012' in plain Java code.",
+      "evidence": [
+        "return \"whsec_prod_99x817aAzK0012\";"
+      ]
+    },
+    "BV2-003": {
+      "category": "DIRECT",
+      "has_issue": true,
+      "expected_role": "maintainability",
+      "explanation": "Redundant boolean comparison 'enabledFlag == true' introduced in return statement.",
+      "evidence": [
+        "return enabledFlag == true;"
+      ]
+    },
+    "BV2-004": {
+      "category": "DIRECT",
+      "has_issue": true,
+      "expected_role": "correctness_logic",
+      "explanation": "If statement has duplicate conditions `loyaltyYears > 5` which shadows and renders the second branch unreachable.",
+      "evidence": [
+        "if (loyaltyYears > 5) { return 0.90; } else if (loyaltyYears > 5) { return 0.85; }"
+      ]
+    },
+    "BV2-005": {
+      "category": "DIRECT",
+      "has_issue": true,
+      "expected_role": "correctness_logic",
+      "explanation": "Latitude bounds check uses inverted condition 'lat >= 90.0 && lat <= -90.0' which is mathematically impossible and always returns false.",
+      "evidence": [
+        "return lat >= 90.0 && lat <= -90.0;"
+      ]
+    },
+    "BV2-006": {
+      "category": "DIRECT",
+      "has_issue": true,
+      "expected_role": "correctness_logic",
+      "explanation": "Method sendAlert unconditionally returns false even after successfully dispatching email.",
+      "evidence": [
+        "return false;"
+      ]
+    },
+    "BV2-007": {
+      "category": "DIRECT",
+      "has_issue": true,
+      "expected_role": "security_validation",
+      "explanation": "Hardcoded symmetric JWT HMAC secret key 'nexus-shared-jwt-super-secret-key-2026' exposed in plain text.",
+      "evidence": [
+        "return \"nexus-shared-jwt-super-secret-key-2026\".getBytes();"
+      ]
+    },
+    "BV2-008": {
+      "category": "DIRECT",
+      "has_issue": true,
+      "expected_role": "correctness_logic",
+      "explanation": "Condition 'countryCode == null && countryCode != null' is a contradiction that always evaluates to false.",
+      "evidence": [
+        "return countryCode == null && countryCode != null;"
+      ]
+    },
+    "BV2-009": {
+      "category": "DIRECT",
+      "has_issue": true,
+      "expected_role": "security_validation",
+      "explanation": "Hardcoded AWS secret access key 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY' embedded in code.",
+      "evidence": [
+        "return \"wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\";"
+      ]
+    },
+    "BV2-010": {
+      "category": "DIRECT",
+      "has_issue": true,
+      "expected_role": "maintainability",
+      "explanation": "Redundant boolean check 'betaFlag != false' introduced.",
+      "evidence": [
+        "return betaFlag != false;"
+      ]
+    },
+    "BV2-011": {
+      "category": "STRUCTURAL",
+      "has_issue": true,
+      "expected_role": "maintainability",
+      "explanation": "Unused local variable 'tempFormattingBuffer' declared and allocated but never referenced in method scope.",
+      "evidence": [
+        "StringBuilder tempFormattingBuffer = new StringBuilder();"
+      ]
+    },
+    "BV2-012": {
+      "category": "STRUCTURAL",
+      "has_issue": true,
+      "expected_role": "correctness_logic",
+      "explanation": "ZipFile resource created but not closed or enclosed in try-with-resources, leaking file descriptors.",
+      "evidence": [
+        "ZipFile zip = new ZipFile(archivePath);"
+      ]
+    },
+    "BV2-013": {
+      "category": "STRUCTURAL",
+      "has_issue": true,
+      "expected_role": "maintainability",
+      "explanation": "Local variable 'nanosElapsed' computed and assigned but never used.",
+      "evidence": [
+        "long nanosElapsed = System.nanoTime() - startNanos;"
+      ]
+    },
+    "BV2-014": {
+      "category": "STRUCTURAL",
+      "has_issue": true,
+      "expected_role": "correctness_logic",
+      "explanation": "BufferedReader wrapping InputStream is instantiated without try-with-resources or close(), leaking socket streams.",
+      "evidence": [
+        "BufferedReader reader = new BufferedReader(new InputStreamReader(input));"
+      ]
+    },
+    "BV2-015": {
+      "category": "STRUCTURAL",
+      "has_issue": true,
+      "expected_role": "maintainability",
+      "explanation": "Local string variable 'delimiter' declared but hardcoded comma used directly in return statement.",
+      "evidence": [
+        "String delimiter = \",\";"
+      ]
+    },
+    "BV2-016": {
+      "category": "STRUCTURAL",
+      "has_issue": true,
+      "expected_role": "correctness_logic",
+      "explanation": "FileInputStream opened directly without cleanup before transferring to output stream.",
+      "evidence": [
+        "FileInputStream src = new FileInputStream(sourceFile);"
+      ]
+    },
+    "BV2-017": {
+      "category": "STRUCTURAL",
+      "has_issue": true,
+      "expected_role": "maintainability",
+      "explanation": "Unused local variable 'maskedIpAddress' computed but never passed to logger.",
+      "evidence": [
+        "String maskedIpAddress = clientIp.replaceAll(\"\\\\.\\\\d+$\", \".xxx\");"
+      ]
+    },
+    "BV2-018": {
+      "category": "STRUCTURAL",
+      "has_issue": true,
+      "expected_role": "maintainability",
+      "explanation": "Unused local integer variable 'columnPadding' declared and initialized but not referenced.",
+      "evidence": [
+        "int columnPadding = 4;"
+      ]
+    },
+    "BV2-019": {
+      "category": "STRUCTURAL",
+      "has_issue": true,
+      "expected_role": "correctness_logic",
+      "explanation": "FileInputStream opened without try-with-resources or close statement.",
+      "evidence": [
+        "FileInputStream in = new FileInputStream(targetFile);"
+      ]
+    },
+    "BV2-020": {
+      "category": "STRUCTURAL",
+      "has_issue": true,
+      "expected_role": "maintainability",
+      "explanation": "Unused local variable 'traceIdHeader' declared but omitted from forwarding headers.",
+      "evidence": [
+        "String traceIdHeader = \"X-Trace-Id: \" + System.currentTimeMillis();"
+      ]
+    },
+    "BV2-021": {
+      "category": "SEMANTIC",
+      "has_issue": true,
+      "expected_role": "security_validation",
+      "explanation": "Authorization check inverted: returns true when user is NOT document owner and has no ADMIN role, allowing unauthorized users to modify other users' documents.",
+      "evidence": [
+        "return !doc.getOwnerId().equals(userId) && !userRole.equals(\"ROLE_ADMIN\");"
+      ]
+    },
+    "BV2-022": {
+      "category": "SEMANTIC",
+      "has_issue": true,
+      "expected_role": "correctness_logic",
+      "explanation": "Order transition logic allows transitioning directly from CANCELLED to SHIPPED instead of PAID to SHIPPED.",
+      "evidence": [
+        "return currentStatus == OrderStatus.CANCELLED;"
+      ]
+    },
+    "BV2-023": {
+      "category": "SEMANTIC",
+      "has_issue": true,
+      "expected_role": "correctness_logic",
+      "explanation": "Refund validation uses 'refundAmount > totalCaptured' allowing refund amounts greater than total captured, and rejects exact refund amounts.",
+      "evidence": [
+        "return refundAmount > totalCaptured && refundAmount > BigDecimal.ZERO;"
+      ]
+    },
+    "BV2-024": {
+      "category": "SEMANTIC",
+      "has_issue": true,
+      "expected_role": "correctness_logic",
+      "explanation": "Daily limit checks 'currentSpent - requestedAmount <= dailyCap' subtracting instead of adding, allowing arbitrary spending beyond daily limit.",
+      "evidence": [
+        "return currentSpent.subtract(requestedAmount).compareTo(dailyCap) <= 0;"
+      ]
+    },
+    "BV2-025": {
+      "category": "SEMANTIC",
+      "has_issue": true,
+      "expected_role": "correctness_logic",
+      "explanation": "Dto mapper maps dto.getPhoneNumber() into entity.setEmailAddress(), corrupting email address data.",
+      "evidence": [
+        "entity.setEmailAddress(dto.getPhoneNumber());"
+      ]
+    },
+    "BV2-026": {
+      "category": "SEMANTIC",
+      "has_issue": true,
+      "expected_role": "security_validation",
+      "explanation": "Tenant filter matches record tenantId against session userId instead of session tenantId, breaking multi-tenant database isolation.",
+      "evidence": [
+        "return recordTenantId != null && recordTenantId.equals(session.getUserId());"
+      ]
+    },
+    "BV2-027": {
+      "category": "SEMANTIC",
+      "has_issue": true,
+      "expected_role": "correctness_logic",
+      "explanation": "Grace period check uses 'now.isBefore(expiryDate)' instead of 'now.isBefore(expiryDate.plusDays(graceDays))', terminating grace periods prematurely.",
+      "evidence": [
+        "return now.isAfter(expiryDate) && now.isBefore(expiryDate);"
+      ]
+    },
+    "BV2-028": {
+      "category": "SEMANTIC",
+      "has_issue": true,
+      "expected_role": "correctness_logic",
+      "explanation": "Velocity check returns true (flagging fraud) when transactionCount is LESS THAN minThreshold instead of greater than maxThreshold.",
+      "evidence": [
+        "return transactionCount < maxThreshold;"
+      ]
+    },
+    "BV2-029": {
+      "category": "SEMANTIC",
+      "has_issue": true,
+      "expected_role": "security_validation",
+      "explanation": "Permission verifier uses 'targetUserId != null || isSuperAdmin' allowing any non-null target user ID to access target profile without authorization.",
+      "evidence": [
+        "return targetUserId != null || isSuperAdmin;"
+      ]
+    },
+    "BV2-030": {
+      "category": "SEMANTIC",
+      "has_issue": true,
+      "expected_role": "correctness_logic",
+      "explanation": "Expired points calculation multiplies earned points by multiplier instead of subtracting redeemed points, computing inflated expired values.",
+      "evidence": [
+        "return earnedPoints * 2;"
+      ]
+    },
+    "BV2-031": {
+      "category": "CLEAN",
+      "has_issue": false,
+      "expected_role": null,
+      "explanation": "Clean PR: correctly implements ternary null guard returning empty string on null and sanitized subpath otherwise.",
+      "evidence": [
+        "return rawPath == null ? \"\" : rawPath.trim().replace(\"..\", \"\");"
+      ]
+    },
+    "BV2-032": {
+      "category": "CLEAN",
+      "has_issue": false,
+      "expected_role": null,
+      "explanation": "Clean PR: correctly refactors FileInputStream into try-with-resources statement ensuring guaranteed closure.",
+      "evidence": [
+        "try (FileInputStream fis = new FileInputStream(cfgFile)) {"
+      ]
+    },
+    "BV2-033": {
+      "category": "CLEAN",
+      "has_issue": false,
+      "expected_role": null,
+      "explanation": "Clean PR: updates UI badge display label for admin role to 'ADMINISTRATOR'. Not a credential or secret.",
+      "evidence": [
+        "return \"ROLE_BADGE_ADMINISTRATOR\";"
+      ]
+    },
+    "BV2-034": {
+      "category": "CLEAN",
+      "has_issue": false,
+      "expected_role": null,
+      "explanation": "Clean PR: implements safe and correct RBAC check ensuring membership is active AND matching teamId.",
+      "evidence": [
+        "return membership.isActive() && membership.getTeamId().equals(targetTeamId);"
+      ]
+    },
+    "BV2-035": {
+      "category": "CLEAN",
+      "has_issue": false,
+      "expected_role": null,
+      "explanation": "Clean PR: implements defensive copy using List.copyOf handling null check appropriately.",
+      "evidence": [
+        "return inputList == null ? List.of() : List.copyOf(inputList);"
+      ]
+    },
+    "BV2-036": {
+      "category": "CLEAN",
+      "has_issue": false,
+      "expected_role": null,
+      "explanation": "Clean PR: replaces standard string equals with MessageDigest.isEqual for timing-attack-safe comparison.",
+      "evidence": [
+        "return MessageDigest.isEqual(sigA.getBytes(StandardCharsets.UTF_8), sigB.getBytes(StandardCharsets.UTF_8));"
+      ]
+    },
+    "BV2-037": {
+      "category": "CLEAN",
+      "has_issue": false,
+      "expected_role": null,
+      "explanation": "Clean PR: correctly parses positive integer returning Optional.empty on non-numeric or negative values.",
+      "evidence": [
+        "try { int val = Integer.parseInt(text.trim()); return val > 0 ? Optional.of(val) : Optional.empty(); } catch (NumberFormatException e) { return Optional.empty(); }"
+      ]
+    },
+    "BV2-038": {
+      "category": "CLEAN",
+      "has_issue": false,
+      "expected_role": null,
+      "explanation": "Clean PR: securely decrypts envelope data key using KMS client; label string 'alias/nexus-data-key' is a KMS key alias, not a secret.",
+      "evidence": [
+        "return kmsClient.decrypt(encryptedDataKey, \"alias/nexus-data-key\");"
+      ]
+    },
+    "BV2-039": {
+      "category": "CLEAN",
+      "has_issue": false,
+      "expected_role": null,
+      "explanation": "Clean PR: correctly synchronizes map lookups and computes value under lock safely.",
+      "evidence": [
+        "synchronized (lock) { return map.computeIfAbsent(key, mappingFunction); }"
+      ]
+    },
+    "BV2-040": {
+      "category": "CLEAN",
+      "has_issue": false,
+      "expected_role": null,
+      "explanation": "Clean PR: correctly sanitizes newlines from log inputs to prevent log injection.",
+      "evidence": [
+        "String safeMessage = eventMessage.replace('\\n', '_').replace('\\r', '_');"
+      ]
+    }
+  }
+}

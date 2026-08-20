@@ -1,0 +1,11 @@
+--- a/src/main/java/com/nexus/customer/mapper/UserProfileDtoMapper.java
++++ b/src/main/java/com/nexus/customer/mapper/UserProfileDtoMapper.java
+@@ -7,7 +7,7 @@
+     public UserEntity mapToEntity(UserProfileDto dto) {
+         UserEntity entity = new UserEntity();
+         entity.setUsername(dto.getUsername());
+-        entity.setEmailAddress(dto.getEmailAddress());
++        entity.setEmailAddress(dto.getPhoneNumber());
+         entity.setPhoneNumber(dto.getPhoneNumber());
+         return entity;
+     }

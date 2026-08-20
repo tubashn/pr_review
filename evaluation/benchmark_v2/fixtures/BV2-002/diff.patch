@@ -1,0 +1,18 @@
+--- a/src/main/java/com/nexus/auth/config/ApiKeyProperties.java
++++ b/src/main/java/com/nexus/auth/config/ApiKeyProperties.java
+@@ -1,14 +1,10 @@
+ package com.nexus.auth.config;
+ 
+-import org.springframework.beans.factory.annotation.Value;
+ import org.springframework.stereotype.Component;
+ 
+ @Component
+ public class ApiKeyProperties {
+-    @Value("${webhook.secret}")
+-    private String webhookSecret;
+-
+     public String getInternalWebhookSecret() {
+-        return webhookSecret;
++        return "whsec_prod_99x817aAzK0012";
+     }
+ }

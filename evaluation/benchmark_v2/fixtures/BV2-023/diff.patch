@@ -1,0 +1,10 @@
+--- a/src/main/java/com/nexus/payment/settlement/RefundValidator.java
++++ b/src/main/java/com/nexus/payment/settlement/RefundValidator.java
+@@ -6,6 +6,6 @@
+ @Service
+ public class RefundValidator {
+     public boolean isRefundAmountValid(BigDecimal refundAmount, BigDecimal totalCaptured) {
+-        return refundAmount.compareTo(BigDecimal.ZERO) > 0 && refundAmount.compareTo(totalCaptured) <= 0;
++        return refundAmount.compareTo(totalCaptured) > 0 && refundAmount.compareTo(BigDecimal.ZERO) > 0;
+     }
+ }

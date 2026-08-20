@@ -1,0 +1,10 @@
+--- a/src/main/java/com/nexus/metrics/aggregator/LatencyMetricsCollector.java
++++ b/src/main/java/com/nexus/metrics/aggregator/LatencyMetricsCollector.java
+@@ -5,6 +5,7 @@
+ @Component
+ public class LatencyMetricsCollector {
+     public void recordExecutionLatency(String endpoint, long startNanos) {
++        long nanosElapsed = System.nanoTime() - startNanos;
+         System.out.println("Endpoint called: " + endpoint);
+     }
+ }

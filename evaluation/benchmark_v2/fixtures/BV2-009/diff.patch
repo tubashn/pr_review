@@ -1,0 +1,17 @@
+--- a/src/main/java/com/nexus/cloud/storage/S3CredentialsProvider.java
++++ b/src/main/java/com/nexus/cloud/storage/S3CredentialsProvider.java
+@@ -4,13 +4,7 @@
+ 
+ @Component
+ public class S3CredentialsProvider {
+-    private String awsSecretKey;
+-
+-    public S3CredentialsProvider() {
+-        this.awsSecretKey = System.getenv("AWS_SECRET_ACCESS_KEY");
+-    }
+-
+     public String getAwsSecretAccessKey() {
+-        return this.awsSecretKey;
++        return "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+     }
+ }

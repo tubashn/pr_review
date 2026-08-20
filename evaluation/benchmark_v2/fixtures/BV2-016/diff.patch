@@ -1,0 +1,13 @@
+--- a/src/main/java/com/nexus/io/channel/FileChannelCopy.java
++++ b/src/main/java/com/nexus/io/channel/FileChannelCopy.java
+@@ -7,8 +7,7 @@
+ 
+ public class FileChannelCopy {
+     public void transferData(File sourceFile, OutputStream target) throws IOException {
+-        try (FileInputStream src = new FileInputStream(sourceFile)) {
+-            src.transferTo(target);
+-        }
++        FileInputStream src = new FileInputStream(sourceFile);
++        src.transferTo(target);
+     }
+ }

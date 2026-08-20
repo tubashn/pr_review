@@ -1,0 +1,17 @@
+--- a/src/main/java/com/nexus/crypto/token/JwtSigningSecret.java
++++ b/src/main/java/com/nexus/crypto/token/JwtSigningSecret.java
+@@ -1,13 +1,7 @@
+ package com.nexus.crypto.token;
+ 
+ public class JwtSigningSecret {
+-    private final byte[] keyBytes;
+-
+-    public JwtSigningSecret(byte[] keyBytes) {
+-        this.keyBytes = keyBytes;
+-    }
+-
+     public byte[] getHmacKeyBytes() {
+-        return this.keyBytes;
++        return "nexus-shared-jwt-super-secret-key-2026".getBytes();
+     }
+ }

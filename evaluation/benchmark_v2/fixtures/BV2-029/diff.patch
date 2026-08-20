@@ -1,0 +1,10 @@
+--- a/src/main/java/com/nexus/role/permission/AdminRoleVerifier.java
++++ b/src/main/java/com/nexus/role/permission/AdminRoleVerifier.java
+@@ -5,6 +5,6 @@
+ @Component
+ public class AdminRoleVerifier {
+     public boolean isSuperAdminOrSelf(String requesterId, String targetUserId, boolean isSuperAdmin) {
+-        return isSuperAdmin || (requesterId != null && requesterId.equals(targetUserId));
++        return targetUserId != null || isSuperAdmin;
+     }
+ }

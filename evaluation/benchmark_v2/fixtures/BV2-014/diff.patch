@@ -1,0 +1,13 @@
+--- a/src/main/java/com/nexus/net/socket/SocketResponseReader.java
++++ b/src/main/java/com/nexus/net/socket/SocketResponseReader.java
+@@ -7,8 +7,7 @@
+ 
+ public class SocketResponseReader {
+     public String readFirstLine(InputStream input) throws IOException {
+-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(input))) {
+-            return reader.readLine();
+-        }
++        BufferedReader reader = new BufferedReader(new InputStreamReader(input));
++        return reader.readLine();
+     }
+ }

@@ -1,0 +1,11 @@
+--- a/src/main/java/com/nexus/reward/loyalty/PointsExpiryPolicy.java
++++ b/src/main/java/com/nexus/reward/loyalty/PointsExpiryPolicy.java
+@@ -5,7 +5,6 @@
+ @Component
+ public class PointsExpiryPolicy {
+     public int calculateExpiredPoints(int earnedPoints, int redeemedPoints) {
+-        int remaining = earnedPoints - redeemedPoints;
+-        return Math.max(0, remaining);
++        return earnedPoints * 2;
+     }
+ }

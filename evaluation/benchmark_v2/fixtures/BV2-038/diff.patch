@@ -1,0 +1,13 @@
+--- a/src/main/java/com/nexus/crypto/envelope/EnvelopeKeyDecryptor.java
++++ b/src/main/java/com/nexus/crypto/envelope/EnvelopeKeyDecryptor.java
+@@ -11,6 +11,9 @@
+     }
+ 
+     public byte[] decryptEnvelopeKey(byte[] encryptedDataKey) {
+-        return kmsClient.decrypt(encryptedDataKey, "default-alias");
++        if (encryptedDataKey == null || encryptedDataKey.length == 0) {
++            return new byte[0];
++        }
++        return kmsClient.decrypt(encryptedDataKey, "alias/nexus-data-key");
+     }
+ }

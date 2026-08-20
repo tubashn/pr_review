@@ -1,0 +1,290 @@
+{
+  "total_scenarios": 40,
+  "pass_count": 39,
+  "review_count": 1,
+  "fail_count": 0,
+  "audit_records": [
+    {
+      "scenario_id": "BV2-001",
+      "category": "DIRECT",
+      "issue_kind": "ALWAYS_TRUE_CONDITION",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-002",
+      "category": "DIRECT",
+      "issue_kind": "HARDCODED_API_KEY",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-003",
+      "category": "DIRECT",
+      "issue_kind": "REDUNDANT_BOOLEAN_COMPARISON",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-004",
+      "category": "DIRECT",
+      "issue_kind": "DUPLICATE_CONDITION_BRANCH",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-005",
+      "category": "DIRECT",
+      "issue_kind": "INVERTED_CONSTANT_BOUNDS",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-006",
+      "category": "DIRECT",
+      "issue_kind": "WRONG_RETURN_CONSTANT",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-007",
+      "category": "DIRECT",
+      "issue_kind": "PLAIN_TEXT_JWT_SIGNING_KEY",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-008",
+      "category": "DIRECT",
+      "issue_kind": "ALWAYS_FALSE_CONDITION",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-009",
+      "category": "DIRECT",
+      "issue_kind": "HARDCODED_AWS_SECRET",
+      "status": "REVIEW",
+      "notes": [
+        "Near-duplicate structural skeleton with BV2-002"
+      ]
+    },
+    {
+      "scenario_id": "BV2-010",
+      "category": "DIRECT",
+      "issue_kind": "REDUNDANT_BOOLEAN_EQUALITY",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-011",
+      "category": "STRUCTURAL",
+      "issue_kind": "UNUSED_LOCAL_VARIABLE",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-012",
+      "category": "STRUCTURAL",
+      "issue_kind": "UNCLOSED_RESOURCE_ZIPFILE",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-013",
+      "category": "STRUCTURAL",
+      "issue_kind": "UNUSED_LOCAL_VARIABLE",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-014",
+      "category": "STRUCTURAL",
+      "issue_kind": "UNCLOSED_BUFFERED_READER",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-015",
+      "category": "STRUCTURAL",
+      "issue_kind": "UNUSED_LOCAL_VARIABLE",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-016",
+      "category": "STRUCTURAL",
+      "issue_kind": "UNCLOSED_FILE_INPUT_STREAM",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-017",
+      "category": "STRUCTURAL",
+      "issue_kind": "UNUSED_LOCAL_VARIABLE",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-018",
+      "category": "STRUCTURAL",
+      "issue_kind": "UNUSED_LOCAL_VARIABLE",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-019",
+      "category": "STRUCTURAL",
+      "issue_kind": "UNCLOSED_INPUT_STREAM",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-020",
+      "category": "STRUCTURAL",
+      "issue_kind": "UNUSED_LOCAL_VARIABLE",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-021",
+      "category": "SEMANTIC",
+      "issue_kind": "REVERSED_AUTHORIZATION_CHECK",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-022",
+      "category": "SEMANTIC",
+      "issue_kind": "INVALID_STATE_TRANSITION",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-023",
+      "category": "SEMANTIC",
+      "issue_kind": "OFF_BY_ONE_REFUND_LIMIT",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-024",
+      "category": "SEMANTIC",
+      "issue_kind": "WRONG_ARITHMETIC_ACCUMULATION",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-025",
+      "category": "SEMANTIC",
+      "issue_kind": "INCORRECT_FIELD_MAPPING",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-026",
+      "category": "SEMANTIC",
+      "issue_kind": "CROSS_TENANT_LEAKAGE_COMPARISON",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-027",
+      "category": "SEMANTIC",
+      "issue_kind": "OFF_BY_ONE_DATE_COMPARISON",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-028",
+      "category": "SEMANTIC",
+      "issue_kind": "INVERTED_FRAUD_THRESHOLD",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-029",
+      "category": "SEMANTIC",
+      "issue_kind": "PRIVILEGE_ESCALATION_EQUALS_CHECK",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-030",
+      "category": "SEMANTIC",
+      "issue_kind": "WRONG_CALCULATION_OPERATION",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-031",
+      "category": "CLEAN",
+      "issue_kind": "CLEAN_TERNARY_NULL_GUARD",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-032",
+      "category": "CLEAN",
+      "issue_kind": "CLEAN_TRY_WITH_RESOURCES",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-033",
+      "category": "CLEAN",
+      "issue_kind": "CLEAN_DISPLAY_CONSTANT",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-034",
+      "category": "CLEAN",
+      "issue_kind": "CLEAN_CORRECT_AUTH_CHECK",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-035",
+      "category": "CLEAN",
+      "issue_kind": "CLEAN_DEFENSIVE_COPY",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-036",
+      "category": "CLEAN",
+      "issue_kind": "CLEAN_CONSTANT_TIME_EQUALS",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-037",
+      "category": "CLEAN",
+      "issue_kind": "CLEAN_OPTIONAL_PARSER",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-038",
+      "category": "CLEAN",
+      "issue_kind": "CLEAN_ENCRYPTED_KEY_HANDLER",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-039",
+      "category": "CLEAN",
+      "issue_kind": "CLEAN_THREAD_SAFE_CACHE",
+      "status": "PASS",
+      "notes": []
+    },
+    {
+      "scenario_id": "BV2-040",
+      "category": "CLEAN",
+      "issue_kind": "CLEAN_DEFENSIVE_LOGGING",
+      "status": "PASS",
+      "notes": []
+    }
+  ]
+}

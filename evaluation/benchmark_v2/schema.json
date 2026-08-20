@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Java PR Review Benchmark V2 Schema",
+  "description": "Schema definition for Java/Spring PR Review Evaluation Benchmark V2.",
+  "definitions": {
+    "scenario": {
+      "type": "object",
+      "required": [
+        "scenario_id",
+        "split",
+        "provenance",
+        "language",
+        "framework",
+        "category",
+        "difficulty",
+        "issue_kind",
+        "expected_role",
+        "context_scope_required",
+        "file_path",
+        "changed_method",
+        "changed_lines",
+        "ground_truth_has_issue",
+        "ground_truth_explanation",
+        "ground_truth_evidence"
+      ],
+      "properties": {
+        "scenario_id": { "type": "string", "pattern": "^BV2-\\d{3}$" },
+        "split": { "type": "string", "enum": ["DEV", "HOLDOUT"] },
+        "provenance": { "type": "string", "enum": ["synthetic", "real"] },
+        "source_url": { "type": ["string", "null"] },
+        "license": { "type": ["string", "null"] },
+        "language": { "type": "string", "enum": ["java"] },
+        "framework": { "type": "string", "enum": ["spring", "plain-java"] },
+        "category": { "type": "string", "enum": ["DIRECT", "STRUCTURAL", "SEMANTIC", "CLEAN"] },
+        "difficulty": { "type": "string", "enum": ["EASY", "MEDIUM", "HARD"] },
+        "issue_kind": { "type": "string" },
+        "expected_role": { "type": ["string", "null"], "enum": ["correctness_logic", "security_validation", "maintainability", null] },
+        "context_scope_required": { "type": "string", "enum": ["LINE", "LOCAL_BLOCK", "METHOD", "FILE", "CROSS_METHOD"] },
+        "file_path": { "type": "string" },
+        "changed_method": { "type": "string" },
+        "changed_lines": { "type": "array", "items": { "type": "integer" } },
+        "ground_truth_has_issue": { "type": "boolean" },
+        "ground_truth_explanation": { "type": "string" },
+        "ground_truth_evidence": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "required": [
+        "candidate_id",
+        "scenario_id",
+        "source_reviewer",
+        "problem",
+        "failure_scenario",
+        "expected",
+        "expected_finding_supported",
+        "reason_type",
+        "difficulty"
+      ],
+      "properties": {
+        "candidate_id": { "type": "string", "pattern": "^BV2-\\d{3}-[a-z_]+-cand-\\d+$" },
+        "scenario_id": { "type": "string", "pattern": "^BV2-\\d{3}$" },
+        "source_reviewer": { "type": "string", "enum": ["correctness_logic", "security_validation", "maintainability"] },
+        "problem": { "type": "string" },
+        "failure_scenario": { "type": "string" },
+        "expected": { "type": "string", "enum": ["ACCEPT", "REJECT"] },
+        "expected_finding_supported": { "type": "boolean" },
+        "reason_type": { "type": "string", "enum": ["true_finding", "false_positive", "role_leakage", "clean_pr_false_positive"] },
+        "difficulty": { "type": "string", "enum": ["EASY", "MEDIUM", "HARD"] }
+      }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+--- a/src/main/java/com/nexus/tenant/isolation/TenantDataFilter.java
++++ b/src/main/java/com/nexus/tenant/isolation/TenantDataFilter.java
+@@ -5,6 +5,6 @@
+ @Component
+ public class TenantDataFilter {
+     public boolean hasTenantAccess(String recordTenantId, UserSession session) {
+-        return recordTenantId != null && recordTenantId.equals(session.getTenantId());
++        return recordTenantId != null && recordTenantId.equals(session.getUserId());
+     }
+ }

@@ -1,0 +1,13 @@
+--- a/src/main/java/com/nexus/archive/reader/ZipArchiveReader.java
++++ b/src/main/java/com/nexus/archive/reader/ZipArchiveReader.java
+@@ -6,8 +6,7 @@
+ 
+ public class ZipArchiveReader {
+     public int countEntries(String archivePath) throws IOException {
+-        try (ZipFile zip = new ZipFile(archivePath)) {
+-            return zip.size();
+-        }
++        ZipFile zip = new ZipFile(archivePath);
++        return zip.size();
+     }
+ }

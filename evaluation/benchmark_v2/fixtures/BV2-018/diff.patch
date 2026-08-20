@@ -1,0 +1,10 @@
+--- a/src/main/java/com/nexus/text/formatter/MarkdownTableBuilder.java
++++ b/src/main/java/com/nexus/text/formatter/MarkdownTableBuilder.java
+@@ -2,6 +2,7 @@
+ 
+ public class MarkdownTableBuilder {
+     public String formatHeaderRow(String col1, String col2) {
++        int columnPadding = 4;
+         return "| " + col1 + " | " + col2 + " |";
+     }
+ }

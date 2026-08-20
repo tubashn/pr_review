@@ -1,0 +1,13 @@
+--- a/src/main/java/com/nexus/io/safe/AutoClosingResourceHandler.java
++++ b/src/main/java/com/nexus/io/safe/AutoClosingResourceHandler.java
+@@ -6,7 +6,8 @@
+ 
+ public class AutoClosingResourceHandler {
+     public byte[] loadConfigurationBytes(File cfgFile) throws IOException {
+-        FileInputStream fis = new FileInputStream(cfgFile);
+-        return fis.readAllBytes();
++        try (FileInputStream fis = new FileInputStream(cfgFile)) {
++            return fis.readAllBytes();
++        }
+     }
+ }

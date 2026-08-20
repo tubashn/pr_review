@@ -1,0 +1,995 @@
+[
+  {
+    "scenario_id": "BV2-001",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "spring",
+    "category": "DIRECT",
+    "difficulty": "EASY",
+    "issue_kind": "ALWAYS_TRUE_CONDITION",
+    "expected_role": "correctness_logic",
+    "context_scope_required": "LINE",
+    "file_path": "src/main/java/com/nexus/inventory/service/StockService.java",
+    "changed_method": "isEligibleForRestock",
+    "changed_lines": [
+      8
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "Condition check 'availableQuantity >= 0 || availableQuantity < 0' is a tautology that always evaluates to true, bypassing threshold checks.",
+    "ground_truth_evidence": [
+      "return availableQuantity >= 0 || availableQuantity < 0;"
+    ]
+  },
+  {
+    "scenario_id": "BV2-002",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "spring",
+    "category": "DIRECT",
+    "difficulty": "EASY",
+    "issue_kind": "HARDCODED_API_KEY",
+    "expected_role": "security_validation",
+    "context_scope_required": "LINE",
+    "file_path": "src/main/java/com/nexus/auth/config/ApiKeyProperties.java",
+    "changed_method": "getInternalWebhookSecret",
+    "changed_lines": [
+      8
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "PR introduces hardcoded internal webhook secret token 'whsec_prod_99x817aAzK0012' in plain Java code.",
+    "ground_truth_evidence": [
+      "return \"whsec_prod_99x817aAzK0012\";"
+    ]
+  },
+  {
+    "scenario_id": "BV2-003",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "plain-java",
+    "category": "DIRECT",
+    "difficulty": "EASY",
+    "issue_kind": "REDUNDANT_BOOLEAN_COMPARISON",
+    "expected_role": "maintainability",
+    "context_scope_required": "LINE",
+    "file_path": "src/main/java/com/nexus/common/util/StatusChecker.java",
+    "changed_method": "isServiceEnabled",
+    "changed_lines": [
+      5
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "Redundant boolean comparison 'enabledFlag == true' introduced in return statement.",
+    "ground_truth_evidence": [
+      "return enabledFlag == true;"
+    ]
+  },
+  {
+    "scenario_id": "BV2-004",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "spring",
+    "category": "DIRECT",
+    "difficulty": "MEDIUM",
+    "issue_kind": "DUPLICATE_CONDITION_BRANCH",
+    "expected_role": "correctness_logic",
+    "context_scope_required": "LOCAL_BLOCK",
+    "file_path": "src/main/java/com/nexus/billing/calculator/DiscountRules.java",
+    "changed_method": "calculateTierMultiplier",
+    "changed_lines": [
+      5,
+      8
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "If statement has duplicate conditions `loyaltyYears > 5` which shadows and renders the second branch unreachable.",
+    "ground_truth_evidence": [
+      "if (loyaltyYears > 5) { return 0.90; } else if (loyaltyYears > 5) { return 0.85; }"
+    ]
+  },
+  {
+    "scenario_id": "BV2-005",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "plain-java",
+    "category": "DIRECT",
+    "difficulty": "MEDIUM",
+    "issue_kind": "INVERTED_CONSTANT_BOUNDS",
+    "expected_role": "correctness_logic",
+    "context_scope_required": "LINE",
+    "file_path": "src/main/java/com/nexus/math/geometry/CoordinateBounds.java",
+    "changed_method": "isWithinNormalizedLatitude",
+    "changed_lines": [
+      5
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "Latitude bounds check uses inverted condition 'lat >= 90.0 && lat <= -90.0' which is mathematically impossible and always returns false.",
+    "ground_truth_evidence": [
+      "return lat >= 90.0 && lat <= -90.0;"
+    ]
+  },
+  {
+    "scenario_id": "BV2-006",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "spring",
+    "category": "DIRECT",
+    "difficulty": "EASY",
+    "issue_kind": "WRONG_RETURN_CONSTANT",
+    "expected_role": "correctness_logic",
+    "context_scope_required": "LINE",
+    "file_path": "src/main/java/com/nexus/notification/smtp/EmailDispatcher.java",
+    "changed_method": "sendAlert",
+    "changed_lines": [
+      12
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "Method sendAlert unconditionally returns false even after successfully dispatching email.",
+    "ground_truth_evidence": [
+      "return false;"
+    ]
+  },
+  {
+    "scenario_id": "BV2-007",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "plain-java",
+    "category": "DIRECT",
+    "difficulty": "MEDIUM",
+    "issue_kind": "PLAIN_TEXT_JWT_SIGNING_KEY",
+    "expected_role": "security_validation",
+    "context_scope_required": "LINE",
+    "file_path": "src/main/java/com/nexus/crypto/token/JwtSigningSecret.java",
+    "changed_method": "getHmacKeyBytes",
+    "changed_lines": [
+      5
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "Hardcoded symmetric JWT HMAC secret key 'nexus-shared-jwt-super-secret-key-2026' exposed in plain text.",
+    "ground_truth_evidence": [
+      "return \"nexus-shared-jwt-super-secret-key-2026\".getBytes();"
+    ]
+  },
+  {
+    "scenario_id": "BV2-008",
+    "split": "HOLDOUT",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "plain-java",
+    "category": "DIRECT",
+    "difficulty": "EASY",
+    "issue_kind": "ALWAYS_FALSE_CONDITION",
+    "expected_role": "correctness_logic",
+    "context_scope_required": "LINE",
+    "file_path": "src/main/java/com/nexus/pricing/policy/TaxRateCalculator.java",
+    "changed_method": "isVatExempt",
+    "changed_lines": [
+      5
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "Condition 'countryCode == null && countryCode != null' is a contradiction that always evaluates to false.",
+    "ground_truth_evidence": [
+      "return countryCode == null && countryCode != null;"
+    ]
+  },
+  {
+    "scenario_id": "BV2-009",
+    "split": "HOLDOUT",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "spring",
+    "category": "DIRECT",
+    "difficulty": "MEDIUM",
+    "issue_kind": "HARDCODED_AWS_SECRET",
+    "expected_role": "security_validation",
+    "context_scope_required": "LINE",
+    "file_path": "src/main/java/com/nexus/cloud/storage/S3CredentialsProvider.java",
+    "changed_method": "getAwsSecretAccessKey",
+    "changed_lines": [
+      8
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "Hardcoded AWS secret access key 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY' embedded in code.",
+    "ground_truth_evidence": [
+      "return \"wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\";"
+    ]
+  },
+  {
+    "scenario_id": "BV2-010",
+    "split": "HOLDOUT",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "plain-java",
+    "category": "DIRECT",
+    "difficulty": "EASY",
+    "issue_kind": "REDUNDANT_BOOLEAN_EQUALITY",
+    "expected_role": "maintainability",
+    "context_scope_required": "LINE",
+    "file_path": "src/main/java/com/nexus/core/filter/FeatureFlagEvaluator.java",
+    "changed_method": "isBetaUiEnabled",
+    "changed_lines": [
+      5
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "Redundant boolean check 'betaFlag != false' introduced.",
+    "ground_truth_evidence": [
+      "return betaFlag != false;"
+    ]
+  },
+  {
+    "scenario_id": "BV2-011",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "spring",
+    "category": "STRUCTURAL",
+    "difficulty": "EASY",
+    "issue_kind": "UNUSED_LOCAL_VARIABLE",
+    "expected_role": "maintainability",
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/order/service/InvoiceGeneratorService.java",
+    "changed_method": "generateInvoicePdf",
+    "changed_lines": [
+      8
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "Unused local variable 'tempFormattingBuffer' declared and allocated but never referenced in method scope.",
+    "ground_truth_evidence": [
+      "StringBuilder tempFormattingBuffer = new StringBuilder();"
+    ]
+  },
+  {
+    "scenario_id": "BV2-012",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "plain-java",
+    "category": "STRUCTURAL",
+    "difficulty": "MEDIUM",
+    "issue_kind": "UNCLOSED_RESOURCE_ZIPFILE",
+    "expected_role": "correctness_logic",
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/archive/reader/ZipArchiveReader.java",
+    "changed_method": "readEntryHeader",
+    "changed_lines": [
+      9,
+      10
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "ZipFile resource created but not closed or enclosed in try-with-resources, leaking file descriptors.",
+    "ground_truth_evidence": [
+      "ZipFile zip = new ZipFile(archivePath);"
+    ]
+  },
+  {
+    "scenario_id": "BV2-013",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "spring",
+    "category": "STRUCTURAL",
+    "difficulty": "MEDIUM",
+    "issue_kind": "UNUSED_LOCAL_VARIABLE",
+    "expected_role": "maintainability",
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/metrics/aggregator/LatencyMetricsCollector.java",
+    "changed_method": "recordExecutionLatency",
+    "changed_lines": [
+      8
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "Local variable 'nanosElapsed' computed and assigned but never used.",
+    "ground_truth_evidence": [
+      "long nanosElapsed = System.nanoTime() - startNanos;"
+    ]
+  },
+  {
+    "scenario_id": "BV2-014",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "plain-java",
+    "category": "STRUCTURAL",
+    "difficulty": "HARD",
+    "issue_kind": "UNCLOSED_BUFFERED_READER",
+    "expected_role": "correctness_logic",
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/net/socket/SocketResponseReader.java",
+    "changed_method": "readFirstLine",
+    "changed_lines": [
+      10,
+      11
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "BufferedReader wrapping InputStream is instantiated without try-with-resources or close(), leaking socket streams.",
+    "ground_truth_evidence": [
+      "BufferedReader reader = new BufferedReader(new InputStreamReader(input));"
+    ]
+  },
+  {
+    "scenario_id": "BV2-015",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "spring",
+    "category": "STRUCTURAL",
+    "difficulty": "EASY",
+    "issue_kind": "UNUSED_LOCAL_VARIABLE",
+    "expected_role": "maintainability",
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/user/export/CsvExporter.java",
+    "changed_method": "buildUserHeader",
+    "changed_lines": [
+      8
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "Local string variable 'delimiter' declared but hardcoded comma used directly in return statement.",
+    "ground_truth_evidence": [
+      "String delimiter = \",\";"
+    ]
+  },
+  {
+    "scenario_id": "BV2-016",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "plain-java",
+    "category": "STRUCTURAL",
+    "difficulty": "HARD",
+    "issue_kind": "UNCLOSED_FILE_INPUT_STREAM",
+    "expected_role": "correctness_logic",
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/io/channel/FileChannelCopy.java",
+    "changed_method": "transferData",
+    "changed_lines": [
+      10,
+      11
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "FileInputStream opened directly without cleanup before transferring to output stream.",
+    "ground_truth_evidence": [
+      "FileInputStream src = new FileInputStream(sourceFile);"
+    ]
+  },
+  {
+    "scenario_id": "BV2-017",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "spring",
+    "category": "STRUCTURAL",
+    "difficulty": "EASY",
+    "issue_kind": "UNUSED_LOCAL_VARIABLE",
+    "expected_role": "maintainability",
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/security/audit/SecurityAuditLogger.java",
+    "changed_method": "logAccessAttempt",
+    "changed_lines": [
+      8
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "Unused local variable 'maskedIpAddress' computed but never passed to logger.",
+    "ground_truth_evidence": [
+      "String maskedIpAddress = clientIp.replaceAll(\"\\\\.\\\\d+$\", \".xxx\");"
+    ]
+  },
+  {
+    "scenario_id": "BV2-018",
+    "split": "HOLDOUT",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "plain-java",
+    "category": "STRUCTURAL",
+    "difficulty": "EASY",
+    "issue_kind": "UNUSED_LOCAL_VARIABLE",
+    "expected_role": "maintainability",
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/text/formatter/MarkdownTableBuilder.java",
+    "changed_method": "formatHeaderRow",
+    "changed_lines": [
+      5
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "Unused local integer variable 'columnPadding' declared and initialized but not referenced.",
+    "ground_truth_evidence": [
+      "int columnPadding = 4;"
+    ]
+  },
+  {
+    "scenario_id": "BV2-019",
+    "split": "HOLDOUT",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "plain-java",
+    "category": "STRUCTURAL",
+    "difficulty": "MEDIUM",
+    "issue_kind": "UNCLOSED_INPUT_STREAM",
+    "expected_role": "correctness_logic",
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/filesystem/scanner/DirectoryChecksumScanner.java",
+    "changed_method": "calculateFileHash",
+    "changed_lines": [
+      9,
+      10
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "FileInputStream opened without try-with-resources or close statement.",
+    "ground_truth_evidence": [
+      "FileInputStream in = new FileInputStream(targetFile);"
+    ]
+  },
+  {
+    "scenario_id": "BV2-020",
+    "split": "HOLDOUT",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "spring",
+    "category": "STRUCTURAL",
+    "difficulty": "HARD",
+    "issue_kind": "UNUSED_LOCAL_VARIABLE",
+    "expected_role": "maintainability",
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/gateway/proxy/HttpPayloadForwarder.java",
+    "changed_method": "forwardPayload",
+    "changed_lines": [
+      8
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "Unused local variable 'traceIdHeader' declared but omitted from forwarding headers.",
+    "ground_truth_evidence": [
+      "String traceIdHeader = \"X-Trace-Id: \" + System.currentTimeMillis();"
+    ]
+  },
+  {
+    "scenario_id": "BV2-021",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "spring",
+    "category": "SEMANTIC",
+    "difficulty": "HARD",
+    "issue_kind": "REVERSED_AUTHORIZATION_CHECK",
+    "expected_role": "security_validation",
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/auth/policy/DocumentAccessPolicy.java",
+    "changed_method": "canModifyDocument",
+    "changed_lines": [
+      8
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "Authorization check inverted: returns true when user is NOT document owner and has no ADMIN role, allowing unauthorized users to modify other users' documents.",
+    "ground_truth_evidence": [
+      "return !doc.getOwnerId().equals(userId) && !userRole.equals(\"ROLE_ADMIN\");"
+    ]
+  },
+  {
+    "scenario_id": "BV2-022",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "spring",
+    "category": "SEMANTIC",
+    "difficulty": "HARD",
+    "issue_kind": "INVALID_STATE_TRANSITION",
+    "expected_role": "correctness_logic",
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/order/workflow/OrderStatusStateMachine.java",
+    "changed_method": "canTransitionToShipped",
+    "changed_lines": [
+      10
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "Order transition logic allows transitioning directly from CANCELLED to SHIPPED instead of PAID to SHIPPED.",
+    "ground_truth_evidence": [
+      "return currentStatus == OrderStatus.CANCELLED;"
+    ]
+  },
+  {
+    "scenario_id": "BV2-023",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "spring",
+    "category": "SEMANTIC",
+    "difficulty": "HARD",
+    "issue_kind": "OFF_BY_ONE_REFUND_LIMIT",
+    "expected_role": "correctness_logic",
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/payment/settlement/RefundValidator.java",
+    "changed_method": "isRefundAmountValid",
+    "changed_lines": [
+      9
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "Refund validation uses 'refundAmount > totalCaptured' allowing refund amounts greater than total captured, and rejects exact refund amounts.",
+    "ground_truth_evidence": [
+      "return refundAmount > totalCaptured && refundAmount > BigDecimal.ZERO;"
+    ]
+  },
+  {
+    "scenario_id": "BV2-024",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "spring",
+    "category": "SEMANTIC",
+    "difficulty": "HARD",
+    "issue_kind": "WRONG_ARITHMETIC_ACCUMULATION",
+    "expected_role": "correctness_logic",
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/account/transfer/DailyTransferLimitPolicy.java",
+    "changed_method": "isTransferWithinDailyCap",
+    "changed_lines": [
+      9
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "Daily limit checks 'currentSpent - requestedAmount <= dailyCap' subtracting instead of adding, allowing arbitrary spending beyond daily limit.",
+    "ground_truth_evidence": [
+      "return currentSpent.subtract(requestedAmount).compareTo(dailyCap) <= 0;"
+    ]
+  },
+  {
+    "scenario_id": "BV2-025",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "spring",
+    "category": "SEMANTIC",
+    "difficulty": "MEDIUM",
+    "issue_kind": "INCORRECT_FIELD_MAPPING",
+    "expected_role": "correctness_logic",
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/customer/mapper/UserProfileDtoMapper.java",
+    "changed_method": "mapToEntity",
+    "changed_lines": [
+      10
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "Dto mapper maps dto.getPhoneNumber() into entity.setEmailAddress(), corrupting email address data.",
+    "ground_truth_evidence": [
+      "entity.setEmailAddress(dto.getPhoneNumber());"
+    ]
+  },
+  {
+    "scenario_id": "BV2-026",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "spring",
+    "category": "SEMANTIC",
+    "difficulty": "HARD",
+    "issue_kind": "CROSS_TENANT_LEAKAGE_COMPARISON",
+    "expected_role": "security_validation",
+    "context_scope_required": "CROSS_METHOD",
+    "file_path": "src/main/java/com/nexus/tenant/isolation/TenantDataFilter.java",
+    "changed_method": "hasTenantAccess",
+    "changed_lines": [
+      8
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "Tenant filter matches record tenantId against session userId instead of session tenantId, breaking multi-tenant database isolation.",
+    "ground_truth_evidence": [
+      "return recordTenantId != null && recordTenantId.equals(session.getUserId());"
+    ]
+  },
+  {
+    "scenario_id": "BV2-027",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "spring",
+    "category": "SEMANTIC",
+    "difficulty": "HARD",
+    "issue_kind": "OFF_BY_ONE_DATE_COMPARISON",
+    "expected_role": "correctness_logic",
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/subscription/renewal/GracePeriodEvaluator.java",
+    "changed_method": "isAccountInGracePeriod",
+    "changed_lines": [
+      9
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "Grace period check uses 'now.isBefore(expiryDate)' instead of 'now.isBefore(expiryDate.plusDays(graceDays))', terminating grace periods prematurely.",
+    "ground_truth_evidence": [
+      "return now.isAfter(expiryDate) && now.isBefore(expiryDate);"
+    ]
+  },
+  {
+    "scenario_id": "BV2-028",
+    "split": "HOLDOUT",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "spring",
+    "category": "SEMANTIC",
+    "difficulty": "HARD",
+    "issue_kind": "INVERTED_FRAUD_THRESHOLD",
+    "expected_role": "correctness_logic",
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/banking/fraud/VelocityCheckService.java",
+    "changed_method": "isVelocityExceeded",
+    "changed_lines": [
+      8
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "Velocity check returns true (flagging fraud) when transactionCount is LESS THAN minThreshold instead of greater than maxThreshold.",
+    "ground_truth_evidence": [
+      "return transactionCount < maxThreshold;"
+    ]
+  },
+  {
+    "scenario_id": "BV2-029",
+    "split": "HOLDOUT",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "spring",
+    "category": "SEMANTIC",
+    "difficulty": "HARD",
+    "issue_kind": "PRIVILEGE_ESCALATION_EQUALS_CHECK",
+    "expected_role": "security_validation",
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/role/permission/AdminRoleVerifier.java",
+    "changed_method": "isSuperAdminOrSelf",
+    "changed_lines": [
+      8
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "Permission verifier uses 'targetUserId != null || isSuperAdmin' allowing any non-null target user ID to access target profile without authorization.",
+    "ground_truth_evidence": [
+      "return targetUserId != null || isSuperAdmin;"
+    ]
+  },
+  {
+    "scenario_id": "BV2-030",
+    "split": "HOLDOUT",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "spring",
+    "category": "SEMANTIC",
+    "difficulty": "MEDIUM",
+    "issue_kind": "WRONG_CALCULATION_OPERATION",
+    "expected_role": "correctness_logic",
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/reward/loyalty/PointsExpiryPolicy.java",
+    "changed_method": "calculateExpiredPoints",
+    "changed_lines": [
+      8
+    ],
+    "ground_truth_has_issue": true,
+    "ground_truth_explanation": "Expired points calculation multiplies earned points by multiplier instead of subtracting redeemed points, computing inflated expired values.",
+    "ground_truth_evidence": [
+      "return earnedPoints * 2;"
+    ]
+  },
+  {
+    "scenario_id": "BV2-031",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "spring",
+    "category": "CLEAN",
+    "difficulty": "HARD",
+    "issue_kind": "CLEAN_TERNARY_NULL_GUARD",
+    "expected_role": null,
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/utility/sanitizer/PathSanitizer.java",
+    "changed_method": "normalizeSafeSubpath",
+    "changed_lines": [
+      5
+    ],
+    "ground_truth_has_issue": false,
+    "ground_truth_explanation": "Clean PR: correctly implements ternary null guard returning empty string on null and sanitized subpath otherwise.",
+    "ground_truth_evidence": [
+      "return rawPath == null ? \"\" : rawPath.trim().replace(\"..\", \"\");"
+    ]
+  },
+  {
+    "scenario_id": "BV2-032",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "plain-java",
+    "category": "CLEAN",
+    "difficulty": "HARD",
+    "issue_kind": "CLEAN_TRY_WITH_RESOURCES",
+    "expected_role": null,
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/io/safe/AutoClosingResourceHandler.java",
+    "changed_method": "loadConfigurationBytes",
+    "changed_lines": [
+      9,
+      10,
+      11
+    ],
+    "ground_truth_has_issue": false,
+    "ground_truth_explanation": "Clean PR: correctly refactors FileInputStream into try-with-resources statement ensuring guaranteed closure.",
+    "ground_truth_evidence": [
+      "try (FileInputStream fis = new FileInputStream(cfgFile)) {"
+    ]
+  },
+  {
+    "scenario_id": "BV2-033",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "spring",
+    "category": "CLEAN",
+    "difficulty": "MEDIUM",
+    "issue_kind": "CLEAN_DISPLAY_CONSTANT",
+    "expected_role": null,
+    "context_scope_required": "LINE",
+    "file_path": "src/main/java/com/nexus/auth/display/UserRoleDisplayHelper.java",
+    "changed_method": "formatRoleBadge",
+    "changed_lines": [
+      8
+    ],
+    "ground_truth_has_issue": false,
+    "ground_truth_explanation": "Clean PR: updates UI badge display label for admin role to 'ADMINISTRATOR'. Not a credential or secret.",
+    "ground_truth_evidence": [
+      "return \"ROLE_BADGE_ADMINISTRATOR\";"
+    ]
+  },
+  {
+    "scenario_id": "BV2-034",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "spring",
+    "category": "CLEAN",
+    "difficulty": "HARD",
+    "issue_kind": "CLEAN_CORRECT_AUTH_CHECK",
+    "expected_role": null,
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/access/rbac/MembershipPermissionGuard.java",
+    "changed_method": "isAuthorizedMember",
+    "changed_lines": [
+      8
+    ],
+    "ground_truth_has_issue": false,
+    "ground_truth_explanation": "Clean PR: implements safe and correct RBAC check ensuring membership is active AND matching teamId.",
+    "ground_truth_evidence": [
+      "return membership.isActive() && membership.getTeamId().equals(targetTeamId);"
+    ]
+  },
+  {
+    "scenario_id": "BV2-035",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "plain-java",
+    "category": "CLEAN",
+    "difficulty": "MEDIUM",
+    "issue_kind": "CLEAN_DEFENSIVE_COPY",
+    "expected_role": null,
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/collections/defensive/ImmutableListHelper.java",
+    "changed_method": "copyElementsSafely",
+    "changed_lines": [
+      7
+    ],
+    "ground_truth_has_issue": false,
+    "ground_truth_explanation": "Clean PR: implements defensive copy using List.copyOf handling null check appropriately.",
+    "ground_truth_evidence": [
+      "return inputList == null ? List.of() : List.copyOf(inputList);"
+    ]
+  },
+  {
+    "scenario_id": "BV2-036",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "spring",
+    "category": "CLEAN",
+    "difficulty": "HARD",
+    "issue_kind": "CLEAN_CONSTANT_TIME_EQUALS",
+    "expected_role": null,
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/payment/gateway/WebhookSignatureValidator.java",
+    "changed_method": "isSignatureValid",
+    "changed_lines": [
+      3,
+      4,
+      10,
+      11,
+      12,
+      13
+    ],
+    "ground_truth_has_issue": false,
+    "ground_truth_explanation": "Clean PR: replaces standard string equals with MessageDigest.isEqual for timing-attack-safe comparison.",
+    "ground_truth_evidence": [
+      "return MessageDigest.isEqual(sigA.getBytes(StandardCharsets.UTF_8), sigB.getBytes(StandardCharsets.UTF_8));"
+    ]
+  },
+  {
+    "scenario_id": "BV2-037",
+    "split": "DEV",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "plain-java",
+    "category": "CLEAN",
+    "difficulty": "MEDIUM",
+    "issue_kind": "CLEAN_OPTIONAL_PARSER",
+    "expected_role": null,
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/text/parser/NumericTokenParser.java",
+    "changed_method": "parsePositiveInteger",
+    "changed_lines": [
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "ground_truth_has_issue": false,
+    "ground_truth_explanation": "Clean PR: correctly parses positive integer returning Optional.empty on non-numeric or negative values.",
+    "ground_truth_evidence": [
+      "try { int val = Integer.parseInt(text.trim()); return val > 0 ? Optional.of(val) : Optional.empty(); } catch (NumberFormatException e) { return Optional.empty(); }"
+    ]
+  },
+  {
+    "scenario_id": "BV2-038",
+    "split": "HOLDOUT",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "spring",
+    "category": "CLEAN",
+    "difficulty": "HARD",
+    "issue_kind": "CLEAN_ENCRYPTED_KEY_HANDLER",
+    "expected_role": null,
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/crypto/envelope/EnvelopeKeyDecryptor.java",
+    "changed_method": "decryptEnvelopeKey",
+    "changed_lines": [
+      14,
+      15,
+      16,
+      17
+    ],
+    "ground_truth_has_issue": false,
+    "ground_truth_explanation": "Clean PR: securely decrypts envelope data key using KMS client; label string 'alias/nexus-data-key' is a KMS key alias, not a secret.",
+    "ground_truth_evidence": [
+      "return kmsClient.decrypt(encryptedDataKey, \"alias/nexus-data-key\");"
+    ]
+  },
+  {
+    "scenario_id": "BV2-039",
+    "split": "HOLDOUT",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "plain-java",
+    "category": "CLEAN",
+    "difficulty": "HARD",
+    "issue_kind": "CLEAN_THREAD_SAFE_CACHE",
+    "expected_role": null,
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/cache/lru/BoundedLruCache.java",
+    "changed_method": "getOrCompute",
+    "changed_lines": [
+      9,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17
+    ],
+    "ground_truth_has_issue": false,
+    "ground_truth_explanation": "Clean PR: correctly synchronizes map lookups and computes value under lock safely.",
+    "ground_truth_evidence": [
+      "synchronized (lock) { return map.computeIfAbsent(key, mappingFunction); }"
+    ]
+  },
+  {
+    "scenario_id": "BV2-040",
+    "split": "HOLDOUT",
+    "provenance": "synthetic",
+    "source_url": null,
+    "license": null,
+    "language": "java",
+    "framework": "spring",
+    "category": "CLEAN",
+    "difficulty": "MEDIUM",
+    "issue_kind": "CLEAN_DEFENSIVE_LOGGING",
+    "expected_role": null,
+    "context_scope_required": "METHOD",
+    "file_path": "src/main/java/com/nexus/audit/trail/EventAuditRecorder.java",
+    "changed_method": "recordAuditEvent",
+    "changed_lines": [
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "ground_truth_has_issue": false,
+    "ground_truth_explanation": "Clean PR: correctly sanitizes newlines from log inputs to prevent log injection.",
+    "ground_truth_evidence": [
+      "String safeMessage = eventMessage.replace('\\n', '_').replace('\\r', '_');"
+    ]
+  }
+]

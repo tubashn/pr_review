@@ -1,0 +1,10 @@
+--- a/src/main/java/com/nexus/gateway/proxy/HttpPayloadForwarder.java
++++ b/src/main/java/com/nexus/gateway/proxy/HttpPayloadForwarder.java
+@@ -5,6 +5,7 @@
+ @Service
+ public class HttpPayloadForwarder {
+     public String forwardPayload(String endpoint, String body) {
++        String traceIdHeader = "X-Trace-Id: " + System.currentTimeMillis();
+         return "Forwarded to: " + endpoint;
+     }
+ }

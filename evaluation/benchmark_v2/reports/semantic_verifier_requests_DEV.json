@@ -1,0 +1,793 @@
+[
+  {
+    "candidate_id": "BV2-011-security_validation-cand-2",
+    "scenario_id": "BV2-011",
+    "file_path": "src/main/java/com/nexus/order/service/InvoiceGeneratorService.java",
+    "changed_method": "generateInvoicePdf",
+    "changed_lines": [
+      8
+    ],
+    "source_reviewer": "security_validation",
+    "problem": "Unsanitized buffer variable creates memory leak vulnerability.",
+    "failure_scenario": "Buffer can be exploited by remote attackers.",
+    "diff": "--- a/src/main/java/com/nexus/order/service/InvoiceGeneratorService.java\n+++ b/src/main/java/com/nexus/order/service/InvoiceGeneratorService.java\n@@ -5,6 +5,7 @@\n @Service\n public class InvoiceGeneratorService {\n     public byte[] generateInvoicePdf(long orderId, String customerName) {\n+        StringBuilder tempFormattingBuffer = new StringBuilder();\n         String title = \"Invoice #\" + orderId + \" for \" + customerName;\n         return title.getBytes();\n     }\n",
+    "after_source": "package com.nexus.order.service;\n\nimport org.springframework.stereotype.Service;\n\n@Service\npublic class InvoiceGeneratorService {\n    public byte[] generateInvoicePdf(long orderId, String customerName) {\n        StringBuilder tempFormattingBuffer = new StringBuilder();\n        String title = \"Invoice #\" + orderId + \" for \" + customerName;\n        return title.getBytes();\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-012-maintainability-cand-1",
+    "scenario_id": "BV2-012",
+    "file_path": "src/main/java/com/nexus/archive/reader/ZipArchiveReader.java",
+    "changed_method": "readEntryHeader",
+    "changed_lines": [
+      9,
+      10
+    ],
+    "source_reviewer": "maintainability",
+    "problem": "Replace ZipFile manual handling with modern utility method.",
+    "failure_scenario": "Code readability issue.",
+    "diff": "--- a/src/main/java/com/nexus/archive/reader/ZipArchiveReader.java\n+++ b/src/main/java/com/nexus/archive/reader/ZipArchiveReader.java\n@@ -6,8 +6,7 @@\n \n public class ZipArchiveReader {\n     public int countEntries(String archivePath) throws IOException {\n-        try (ZipFile zip = new ZipFile(archivePath)) {\n-            return zip.size();\n-        }\n+        ZipFile zip = new ZipFile(archivePath);\n+        return zip.size();\n     }\n }\n",
+    "after_source": "package com.nexus.archive.reader;\n\nimport java.io.File;\nimport java.io.IOException;\nimport java.util.zip.ZipFile;\n\npublic class ZipArchiveReader {\n    public int countEntries(String archivePath) throws IOException {\n        ZipFile zip = new ZipFile(archivePath);\n        return zip.size();\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-012-security_validation-cand-2",
+    "scenario_id": "BV2-012",
+    "file_path": "src/main/java/com/nexus/archive/reader/ZipArchiveReader.java",
+    "changed_method": "readEntryHeader",
+    "changed_lines": [
+      9,
+      10
+    ],
+    "source_reviewer": "security_validation",
+    "problem": "Zip bomb denial of service risk.",
+    "failure_scenario": "Zip entry size can crash server memory.",
+    "diff": "--- a/src/main/java/com/nexus/archive/reader/ZipArchiveReader.java\n+++ b/src/main/java/com/nexus/archive/reader/ZipArchiveReader.java\n@@ -6,8 +6,7 @@\n \n public class ZipArchiveReader {\n     public int countEntries(String archivePath) throws IOException {\n-        try (ZipFile zip = new ZipFile(archivePath)) {\n-            return zip.size();\n-        }\n+        ZipFile zip = new ZipFile(archivePath);\n+        return zip.size();\n     }\n }\n",
+    "after_source": "package com.nexus.archive.reader;\n\nimport java.io.File;\nimport java.io.IOException;\nimport java.util.zip.ZipFile;\n\npublic class ZipArchiveReader {\n    public int countEntries(String archivePath) throws IOException {\n        ZipFile zip = new ZipFile(archivePath);\n        return zip.size();\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-013-maintainability-cand-0",
+    "scenario_id": "BV2-013",
+    "file_path": "src/main/java/com/nexus/metrics/aggregator/LatencyMetricsCollector.java",
+    "changed_method": "recordExecutionLatency",
+    "changed_lines": [
+      8
+    ],
+    "source_reviewer": "maintainability",
+    "problem": "Calculated local variable 'nanosElapsed' is never read or used in method scope.",
+    "failure_scenario": "Dead variable calculation creates confusion for developers inspecting metrics tracking.",
+    "diff": "--- a/src/main/java/com/nexus/metrics/aggregator/LatencyMetricsCollector.java\n+++ b/src/main/java/com/nexus/metrics/aggregator/LatencyMetricsCollector.java\n@@ -5,6 +5,7 @@\n @Component\n public class LatencyMetricsCollector {\n     public void recordExecutionLatency(String endpoint, long startNanos) {\n+        long nanosElapsed = System.nanoTime() - startNanos;\n         System.out.println(\"Endpoint called: \" + endpoint);\n     }\n }\n",
+    "after_source": "package com.nexus.metrics.aggregator;\n\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class LatencyMetricsCollector {\n    public void recordExecutionLatency(String endpoint, long startNanos) {\n        long nanosElapsed = System.nanoTime() - startNanos;\n        System.out.println(\"Endpoint called: \" + endpoint);\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-013-correctness_logic-cand-1",
+    "scenario_id": "BV2-013",
+    "file_path": "src/main/java/com/nexus/metrics/aggregator/LatencyMetricsCollector.java",
+    "changed_method": "recordExecutionLatency",
+    "changed_lines": [
+      8
+    ],
+    "source_reviewer": "correctness_logic",
+    "problem": "nanosElapsed is calculated but not logged, resulting in missing telemetry.",
+    "failure_scenario": "Performance metrics dashboard will display zero latency values.",
+    "diff": "--- a/src/main/java/com/nexus/metrics/aggregator/LatencyMetricsCollector.java\n+++ b/src/main/java/com/nexus/metrics/aggregator/LatencyMetricsCollector.java\n@@ -5,6 +5,7 @@\n @Component\n public class LatencyMetricsCollector {\n     public void recordExecutionLatency(String endpoint, long startNanos) {\n+        long nanosElapsed = System.nanoTime() - startNanos;\n         System.out.println(\"Endpoint called: \" + endpoint);\n     }\n }\n",
+    "after_source": "package com.nexus.metrics.aggregator;\n\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class LatencyMetricsCollector {\n    public void recordExecutionLatency(String endpoint, long startNanos) {\n        long nanosElapsed = System.nanoTime() - startNanos;\n        System.out.println(\"Endpoint called: \" + endpoint);\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-013-security_validation-cand-2",
+    "scenario_id": "BV2-013",
+    "file_path": "src/main/java/com/nexus/metrics/aggregator/LatencyMetricsCollector.java",
+    "changed_method": "recordExecutionLatency",
+    "changed_lines": [
+      8
+    ],
+    "source_reviewer": "security_validation",
+    "problem": "Information disclosure vulnerability in execution latency timing.",
+    "failure_scenario": "Measuring nanosecond latency differences allows side-channel timing attacks.",
+    "diff": "--- a/src/main/java/com/nexus/metrics/aggregator/LatencyMetricsCollector.java\n+++ b/src/main/java/com/nexus/metrics/aggregator/LatencyMetricsCollector.java\n@@ -5,6 +5,7 @@\n @Component\n public class LatencyMetricsCollector {\n     public void recordExecutionLatency(String endpoint, long startNanos) {\n+        long nanosElapsed = System.nanoTime() - startNanos;\n         System.out.println(\"Endpoint called: \" + endpoint);\n     }\n }\n",
+    "after_source": "package com.nexus.metrics.aggregator;\n\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class LatencyMetricsCollector {\n    public void recordExecutionLatency(String endpoint, long startNanos) {\n        long nanosElapsed = System.nanoTime() - startNanos;\n        System.out.println(\"Endpoint called: \" + endpoint);\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-014-security_validation-cand-2",
+    "scenario_id": "BV2-014",
+    "file_path": "src/main/java/com/nexus/net/socket/SocketResponseReader.java",
+    "changed_method": "readFirstLine",
+    "changed_lines": [
+      10,
+      11
+    ],
+    "source_reviewer": "security_validation",
+    "problem": "Socket input stream denial of service via unbounded readLine() call.",
+    "failure_scenario": "Malicious client sending infinite line without newline character exhausts JVM memory.",
+    "diff": "--- a/src/main/java/com/nexus/net/socket/SocketResponseReader.java\n+++ b/src/main/java/com/nexus/net/socket/SocketResponseReader.java\n@@ -7,8 +7,7 @@\n \n public class SocketResponseReader {\n     public String readFirstLine(InputStream input) throws IOException {\n-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(input))) {\n-            return reader.readLine();\n-        }\n+        BufferedReader reader = new BufferedReader(new InputStreamReader(input));\n+        return reader.readLine();\n     }\n }\n",
+    "after_source": "package com.nexus.net.socket;\n\nimport java.io.BufferedReader;\nimport java.io.InputStream;\nimport java.io.InputStreamReader;\nimport java.io.IOException;\n\npublic class SocketResponseReader {\n    public String readFirstLine(InputStream input) throws IOException {\n        BufferedReader reader = new BufferedReader(new InputStreamReader(input));\n        return reader.readLine();\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-015-correctness_logic-cand-1",
+    "scenario_id": "BV2-015",
+    "file_path": "src/main/java/com/nexus/user/export/CsvExporter.java",
+    "changed_method": "buildUserHeader",
+    "changed_lines": [
+      8
+    ],
+    "source_reviewer": "correctness_logic",
+    "problem": "Header delimiter variable is ignored, causing CSV export format bug.",
+    "failure_scenario": "Custom delimiters cannot be applied.",
+    "diff": "--- a/src/main/java/com/nexus/user/export/CsvExporter.java\n+++ b/src/main/java/com/nexus/user/export/CsvExporter.java\n@@ -5,6 +5,7 @@\n @Component\n public class CsvExporter {\n     public String buildUserHeader() {\n+        String delimiter = \",\";\n         return \"id,username,email,created_at\";\n     }\n }\n",
+    "after_source": "package com.nexus.user.export;\n\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class CsvExporter {\n    public String buildUserHeader() {\n        String delimiter = \",\";\n        return \"id,username,email,created_at\";\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-015-security_validation-cand-2",
+    "scenario_id": "BV2-015",
+    "file_path": "src/main/java/com/nexus/user/export/CsvExporter.java",
+    "changed_method": "buildUserHeader",
+    "changed_lines": [
+      8
+    ],
+    "source_reviewer": "security_validation",
+    "problem": "CSV injection vulnerability in user export headers.",
+    "failure_scenario": "CSV formulas starting with =, +, -, @ can execute arbitrary commands in spreadsheet viewers.",
+    "diff": "--- a/src/main/java/com/nexus/user/export/CsvExporter.java\n+++ b/src/main/java/com/nexus/user/export/CsvExporter.java\n@@ -5,6 +5,7 @@\n @Component\n public class CsvExporter {\n     public String buildUserHeader() {\n+        String delimiter = \",\";\n         return \"id,username,email,created_at\";\n     }\n }\n",
+    "after_source": "package com.nexus.user.export;\n\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class CsvExporter {\n    public String buildUserHeader() {\n        String delimiter = \",\";\n        return \"id,username,email,created_at\";\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-016-security_validation-cand-1",
+    "scenario_id": "BV2-016",
+    "file_path": "src/main/java/com/nexus/io/channel/FileChannelCopy.java",
+    "changed_method": "transferData",
+    "changed_lines": [
+      10,
+      11
+    ],
+    "source_reviewer": "security_validation",
+    "problem": "Arbitrary file read vulnerability via sourceFile parameter.",
+    "failure_scenario": "Attackers can pass arbitrary file paths to read sensitive files.",
+    "diff": "--- a/src/main/java/com/nexus/io/channel/FileChannelCopy.java\n+++ b/src/main/java/com/nexus/io/channel/FileChannelCopy.java\n@@ -7,8 +7,7 @@\n \n public class FileChannelCopy {\n     public void transferData(File sourceFile, OutputStream target) throws IOException {\n-        try (FileInputStream src = new FileInputStream(sourceFile)) {\n-            src.transferTo(target);\n-        }\n+        FileInputStream src = new FileInputStream(sourceFile);\n+        src.transferTo(target);\n     }\n }\n",
+    "after_source": "package com.nexus.io.channel;\n\nimport java.io.File;\nimport java.io.FileInputStream;\nimport java.io.OutputStream;\nimport java.io.IOException;\n\npublic class FileChannelCopy {\n    public void transferData(File sourceFile, OutputStream target) throws IOException {\n        FileInputStream src = new FileInputStream(sourceFile);\n        src.transferTo(target);\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-016-maintainability-cand-2",
+    "scenario_id": "BV2-016",
+    "file_path": "src/main/java/com/nexus/io/channel/FileChannelCopy.java",
+    "changed_method": "transferData",
+    "changed_lines": [
+      10,
+      11
+    ],
+    "source_reviewer": "maintainability",
+    "problem": "Use Files.copy instead of manual stream transfer.",
+    "failure_scenario": "NIO utility method is preferred.",
+    "diff": "--- a/src/main/java/com/nexus/io/channel/FileChannelCopy.java\n+++ b/src/main/java/com/nexus/io/channel/FileChannelCopy.java\n@@ -7,8 +7,7 @@\n \n public class FileChannelCopy {\n     public void transferData(File sourceFile, OutputStream target) throws IOException {\n-        try (FileInputStream src = new FileInputStream(sourceFile)) {\n-            src.transferTo(target);\n-        }\n+        FileInputStream src = new FileInputStream(sourceFile);\n+        src.transferTo(target);\n     }\n }\n",
+    "after_source": "package com.nexus.io.channel;\n\nimport java.io.File;\nimport java.io.FileInputStream;\nimport java.io.OutputStream;\nimport java.io.IOException;\n\npublic class FileChannelCopy {\n    public void transferData(File sourceFile, OutputStream target) throws IOException {\n        FileInputStream src = new FileInputStream(sourceFile);\n        src.transferTo(target);\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-017-security_validation-cand-1",
+    "scenario_id": "BV2-017",
+    "file_path": "src/main/java/com/nexus/security/audit/SecurityAuditLogger.java",
+    "changed_method": "logAccessAttempt",
+    "changed_lines": [
+      8
+    ],
+    "source_reviewer": "security_validation",
+    "problem": "Client IP masking is bypassed in audit logs.",
+    "failure_scenario": "PII data exposure in audit trails.",
+    "diff": "--- a/src/main/java/com/nexus/security/audit/SecurityAuditLogger.java\n+++ b/src/main/java/com/nexus/security/audit/SecurityAuditLogger.java\n@@ -5,6 +5,7 @@\n @Component\n public class SecurityAuditLogger {\n     public void logAccessAttempt(String user, String clientIp) {\n+        String maskedIpAddress = clientIp.replaceAll(\"\\\\.\\\\d+$\", \".xxx\");\n         System.out.println(\"Access attempt by user: \" + user);\n     }\n }\n",
+    "after_source": "package com.nexus.security.audit;\n\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class SecurityAuditLogger {\n    public void logAccessAttempt(String user, String clientIp) {\n        String maskedIpAddress = clientIp.replaceAll(\"\\\\.\\\\d+$\", \".xxx\");\n        System.out.println(\"Access attempt by user: \" + user);\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-017-correctness_logic-cand-2",
+    "scenario_id": "BV2-017",
+    "file_path": "src/main/java/com/nexus/security/audit/SecurityAuditLogger.java",
+    "changed_method": "logAccessAttempt",
+    "changed_lines": [
+      8
+    ],
+    "source_reviewer": "correctness_logic",
+    "problem": "Regex masking fails to mask entire IP address for IPv6 addresses.",
+    "failure_scenario": "IPv6 addresses do not contain dots, so masking is skipped entirely.",
+    "diff": "--- a/src/main/java/com/nexus/security/audit/SecurityAuditLogger.java\n+++ b/src/main/java/com/nexus/security/audit/SecurityAuditLogger.java\n@@ -5,6 +5,7 @@\n @Component\n public class SecurityAuditLogger {\n     public void logAccessAttempt(String user, String clientIp) {\n+        String maskedIpAddress = clientIp.replaceAll(\"\\\\.\\\\d+$\", \".xxx\");\n         System.out.println(\"Access attempt by user: \" + user);\n     }\n }\n",
+    "after_source": "package com.nexus.security.audit;\n\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class SecurityAuditLogger {\n    public void logAccessAttempt(String user, String clientIp) {\n        String maskedIpAddress = clientIp.replaceAll(\"\\\\.\\\\d+$\", \".xxx\");\n        System.out.println(\"Access attempt by user: \" + user);\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-021-security_validation-cand-0",
+    "scenario_id": "BV2-021",
+    "file_path": "src/main/java/com/nexus/auth/policy/DocumentAccessPolicy.java",
+    "changed_method": "canModifyDocument",
+    "changed_lines": [
+      8
+    ],
+    "source_reviewer": "security_validation",
+    "problem": "Inverted authorization condition allows arbitrary non-owner users to modify private documents while blocking legitimate owners and admins.",
+    "failure_scenario": "A non-admin user can edit documents owned by any other user, resulting in a critical broken access control (BACS) vulnerability.",
+    "diff": "--- a/src/main/java/com/nexus/auth/policy/DocumentAccessPolicy.java\n+++ b/src/main/java/com/nexus/auth/policy/DocumentAccessPolicy.java\n@@ -5,6 +5,6 @@\n @Component\n public class DocumentAccessPolicy {\n     public boolean canModifyDocument(Document doc, String userId, String userRole) {\n-        return doc.getOwnerId().equals(userId) || \"ROLE_ADMIN\".equals(userRole);\n+        return !doc.getOwnerId().equals(userId) && !userRole.equals(\"ROLE_ADMIN\");\n     }\n }\n",
+    "after_source": "package com.nexus.auth.policy;\n\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class DocumentAccessPolicy {\n    public boolean canModifyDocument(Document doc, String userId, String userRole) {\n        return !doc.getOwnerId().equals(userId) && !userRole.equals(\"ROLE_ADMIN\");\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-021-correctness_logic-cand-1",
+    "scenario_id": "BV2-021",
+    "file_path": "src/main/java/com/nexus/auth/policy/DocumentAccessPolicy.java",
+    "changed_method": "canModifyDocument",
+    "changed_lines": [
+      8
+    ],
+    "source_reviewer": "correctness_logic",
+    "problem": "Logical inversion in canModifyDocument return expression.",
+    "failure_scenario": "Function returns opposite of intended boolean value.",
+    "diff": "--- a/src/main/java/com/nexus/auth/policy/DocumentAccessPolicy.java\n+++ b/src/main/java/com/nexus/auth/policy/DocumentAccessPolicy.java\n@@ -5,6 +5,6 @@\n @Component\n public class DocumentAccessPolicy {\n     public boolean canModifyDocument(Document doc, String userId, String userRole) {\n-        return doc.getOwnerId().equals(userId) || \"ROLE_ADMIN\".equals(userRole);\n+        return !doc.getOwnerId().equals(userId) && !userRole.equals(\"ROLE_ADMIN\");\n     }\n }\n",
+    "after_source": "package com.nexus.auth.policy;\n\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class DocumentAccessPolicy {\n    public boolean canModifyDocument(Document doc, String userId, String userRole) {\n        return !doc.getOwnerId().equals(userId) && !userRole.equals(\"ROLE_ADMIN\");\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-021-maintainability-cand-2",
+    "scenario_id": "BV2-021",
+    "file_path": "src/main/java/com/nexus/auth/policy/DocumentAccessPolicy.java",
+    "changed_method": "canModifyDocument",
+    "changed_lines": [
+      8
+    ],
+    "source_reviewer": "maintainability",
+    "problem": "String literal 'ROLE_ADMIN' should be replaced with RoleEnum.ADMIN constant.",
+    "failure_scenario": "Role string refactoring risk.",
+    "diff": "--- a/src/main/java/com/nexus/auth/policy/DocumentAccessPolicy.java\n+++ b/src/main/java/com/nexus/auth/policy/DocumentAccessPolicy.java\n@@ -5,6 +5,6 @@\n @Component\n public class DocumentAccessPolicy {\n     public boolean canModifyDocument(Document doc, String userId, String userRole) {\n-        return doc.getOwnerId().equals(userId) || \"ROLE_ADMIN\".equals(userRole);\n+        return !doc.getOwnerId().equals(userId) && !userRole.equals(\"ROLE_ADMIN\");\n     }\n }\n",
+    "after_source": "package com.nexus.auth.policy;\n\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class DocumentAccessPolicy {\n    public boolean canModifyDocument(Document doc, String userId, String userRole) {\n        return !doc.getOwnerId().equals(userId) && !userRole.equals(\"ROLE_ADMIN\");\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-022-correctness_logic-cand-0",
+    "scenario_id": "BV2-022",
+    "file_path": "src/main/java/com/nexus/order/workflow/OrderStatusStateMachine.java",
+    "changed_method": "canTransitionToShipped",
+    "changed_lines": [
+      10
+    ],
+    "source_reviewer": "correctness_logic",
+    "problem": "State machine incorrectly allows CANCELLED orders to transition to SHIPPED while blocking PAID orders from being shipped.",
+    "failure_scenario": "Warehouse dispatchers will ship cancelled orders to customers while legitimate paid orders cannot be fulfilled.",
+    "diff": "--- a/src/main/java/com/nexus/order/workflow/OrderStatusStateMachine.java\n+++ b/src/main/java/com/nexus/order/workflow/OrderStatusStateMachine.java\n@@ -7,6 +7,6 @@\n     public enum OrderStatus { CREATED, PAID, SHIPPED, CANCELLED }\n \n     public boolean canTransitionToShipped(OrderStatus currentStatus) {\n-        return currentStatus == OrderStatus.PAID;\n+        return currentStatus == OrderStatus.CANCELLED;\n     }\n }\n",
+    "after_source": "package com.nexus.order.workflow;\n\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class OrderStatusStateMachine {\n    public enum OrderStatus { CREATED, PAID, SHIPPED, CANCELLED }\n\n    public boolean canTransitionToShipped(OrderStatus currentStatus) {\n        return currentStatus == OrderStatus.CANCELLED;\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-022-security_validation-cand-1",
+    "scenario_id": "BV2-022",
+    "file_path": "src/main/java/com/nexus/order/workflow/OrderStatusStateMachine.java",
+    "changed_method": "canTransitionToShipped",
+    "changed_lines": [
+      10
+    ],
+    "source_reviewer": "security_validation",
+    "problem": "Unauthorized order state modification flaw.",
+    "failure_scenario": "Allows fraudulent shipment of cancelled goods.",
+    "diff": "--- a/src/main/java/com/nexus/order/workflow/OrderStatusStateMachine.java\n+++ b/src/main/java/com/nexus/order/workflow/OrderStatusStateMachine.java\n@@ -7,6 +7,6 @@\n     public enum OrderStatus { CREATED, PAID, SHIPPED, CANCELLED }\n \n     public boolean canTransitionToShipped(OrderStatus currentStatus) {\n-        return currentStatus == OrderStatus.PAID;\n+        return currentStatus == OrderStatus.CANCELLED;\n     }\n }\n",
+    "after_source": "package com.nexus.order.workflow;\n\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class OrderStatusStateMachine {\n    public enum OrderStatus { CREATED, PAID, SHIPPED, CANCELLED }\n\n    public boolean canTransitionToShipped(OrderStatus currentStatus) {\n        return currentStatus == OrderStatus.CANCELLED;\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-022-maintainability-cand-2",
+    "scenario_id": "BV2-022",
+    "file_path": "src/main/java/com/nexus/order/workflow/OrderStatusStateMachine.java",
+    "changed_method": "canTransitionToShipped",
+    "changed_lines": [
+      10
+    ],
+    "source_reviewer": "maintainability",
+    "problem": "Use EnumSet.of() for state machine transition verification.",
+    "failure_scenario": "Improves state machine extensibility.",
+    "diff": "--- a/src/main/java/com/nexus/order/workflow/OrderStatusStateMachine.java\n+++ b/src/main/java/com/nexus/order/workflow/OrderStatusStateMachine.java\n@@ -7,6 +7,6 @@\n     public enum OrderStatus { CREATED, PAID, SHIPPED, CANCELLED }\n \n     public boolean canTransitionToShipped(OrderStatus currentStatus) {\n-        return currentStatus == OrderStatus.PAID;\n+        return currentStatus == OrderStatus.CANCELLED;\n     }\n }\n",
+    "after_source": "package com.nexus.order.workflow;\n\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class OrderStatusStateMachine {\n    public enum OrderStatus { CREATED, PAID, SHIPPED, CANCELLED }\n\n    public boolean canTransitionToShipped(OrderStatus currentStatus) {\n        return currentStatus == OrderStatus.CANCELLED;\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-023-correctness_logic-cand-0",
+    "scenario_id": "BV2-023",
+    "file_path": "src/main/java/com/nexus/payment/settlement/RefundValidator.java",
+    "changed_method": "isRefundAmountValid",
+    "changed_lines": [
+      9
+    ],
+    "source_reviewer": "correctness_logic",
+    "problem": "Refund validation logic inverted: accepts refund amounts strictly greater than captured total and rejects valid refunds.",
+    "failure_scenario": "Merchants can issue refunds exceeding the transaction value while standard full/partial refunds are rejected with errors.",
+    "diff": "--- a/src/main/java/com/nexus/payment/settlement/RefundValidator.java\n+++ b/src/main/java/com/nexus/payment/settlement/RefundValidator.java\n@@ -6,6 +6,6 @@\n @Service\n public class RefundValidator {\n     public boolean isRefundAmountValid(BigDecimal refundAmount, BigDecimal totalCaptured) {\n-        return refundAmount.compareTo(BigDecimal.ZERO) > 0 && refundAmount.compareTo(totalCaptured) <= 0;\n+        return refundAmount.compareTo(totalCaptured) > 0 && refundAmount.compareTo(BigDecimal.ZERO) > 0;\n     }\n }\n",
+    "after_source": "package com.nexus.payment.settlement;\n\nimport java.math.BigDecimal;\nimport org.springframework.stereotype.Service;\n\n@Service\npublic class RefundValidator {\n    public boolean isRefundAmountValid(BigDecimal refundAmount, BigDecimal totalCaptured) {\n        return refundAmount.compareTo(totalCaptured) > 0 && refundAmount.compareTo(BigDecimal.ZERO) > 0;\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-023-security_validation-cand-1",
+    "scenario_id": "BV2-023",
+    "file_path": "src/main/java/com/nexus/payment/settlement/RefundValidator.java",
+    "changed_method": "isRefundAmountValid",
+    "changed_lines": [
+      9
+    ],
+    "source_reviewer": "security_validation",
+    "problem": "Financial overpayment vulnerability in refund processing.",
+    "failure_scenario": "Attackers can drain merchant funds by requesting refunds larger than original deposit.",
+    "diff": "--- a/src/main/java/com/nexus/payment/settlement/RefundValidator.java\n+++ b/src/main/java/com/nexus/payment/settlement/RefundValidator.java\n@@ -6,6 +6,6 @@\n @Service\n public class RefundValidator {\n     public boolean isRefundAmountValid(BigDecimal refundAmount, BigDecimal totalCaptured) {\n-        return refundAmount.compareTo(BigDecimal.ZERO) > 0 && refundAmount.compareTo(totalCaptured) <= 0;\n+        return refundAmount.compareTo(totalCaptured) > 0 && refundAmount.compareTo(BigDecimal.ZERO) > 0;\n     }\n }\n",
+    "after_source": "package com.nexus.payment.settlement;\n\nimport java.math.BigDecimal;\nimport org.springframework.stereotype.Service;\n\n@Service\npublic class RefundValidator {\n    public boolean isRefundAmountValid(BigDecimal refundAmount, BigDecimal totalCaptured) {\n        return refundAmount.compareTo(totalCaptured) > 0 && refundAmount.compareTo(BigDecimal.ZERO) > 0;\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-023-maintainability-cand-2",
+    "scenario_id": "BV2-023",
+    "file_path": "src/main/java/com/nexus/payment/settlement/RefundValidator.java",
+    "changed_method": "isRefundAmountValid",
+    "changed_lines": [
+      9
+    ],
+    "source_reviewer": "maintainability",
+    "problem": "Replace compareTo chained comparisons with BigDecimal helper method.",
+    "failure_scenario": "Chained compareTo expressions decrease code clarity.",
+    "diff": "--- a/src/main/java/com/nexus/payment/settlement/RefundValidator.java\n+++ b/src/main/java/com/nexus/payment/settlement/RefundValidator.java\n@@ -6,6 +6,6 @@\n @Service\n public class RefundValidator {\n     public boolean isRefundAmountValid(BigDecimal refundAmount, BigDecimal totalCaptured) {\n-        return refundAmount.compareTo(BigDecimal.ZERO) > 0 && refundAmount.compareTo(totalCaptured) <= 0;\n+        return refundAmount.compareTo(totalCaptured) > 0 && refundAmount.compareTo(BigDecimal.ZERO) > 0;\n     }\n }\n",
+    "after_source": "package com.nexus.payment.settlement;\n\nimport java.math.BigDecimal;\nimport org.springframework.stereotype.Service;\n\n@Service\npublic class RefundValidator {\n    public boolean isRefundAmountValid(BigDecimal refundAmount, BigDecimal totalCaptured) {\n        return refundAmount.compareTo(totalCaptured) > 0 && refundAmount.compareTo(BigDecimal.ZERO) > 0;\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-024-correctness_logic-cand-0",
+    "scenario_id": "BV2-024",
+    "file_path": "src/main/java/com/nexus/account/transfer/DailyTransferLimitPolicy.java",
+    "changed_method": "isTransferWithinDailyCap",
+    "changed_lines": [
+      9
+    ],
+    "source_reviewer": "correctness_logic",
+    "problem": "Subtracting requestedAmount instead of adding it bypasses daily transfer limit enforcement.",
+    "failure_scenario": "As requested transfer amounts increase, currentSpent - requestedAmount becomes negative, always passing daily cap checks.",
+    "diff": "--- a/src/main/java/com/nexus/account/transfer/DailyTransferLimitPolicy.java\n+++ b/src/main/java/com/nexus/account/transfer/DailyTransferLimitPolicy.java\n@@ -6,6 +6,6 @@\n @Component\n public class DailyTransferLimitPolicy {\n     public boolean isTransferWithinDailyCap(BigDecimal currentSpent, BigDecimal requestedAmount, BigDecimal dailyCap) {\n-        return currentSpent.add(requestedAmount).compareTo(dailyCap) <= 0;\n+        return currentSpent.subtract(requestedAmount).compareTo(dailyCap) <= 0;\n     }\n }\n",
+    "after_source": "package com.nexus.account.transfer;\n\nimport java.math.BigDecimal;\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class DailyTransferLimitPolicy {\n    public boolean isTransferWithinDailyCap(BigDecimal currentSpent, BigDecimal requestedAmount, BigDecimal dailyCap) {\n        return currentSpent.subtract(requestedAmount).compareTo(dailyCap) <= 0;\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-024-security_validation-cand-1",
+    "scenario_id": "BV2-024",
+    "file_path": "src/main/java/com/nexus/account/transfer/DailyTransferLimitPolicy.java",
+    "changed_method": "isTransferWithinDailyCap",
+    "changed_lines": [
+      9
+    ],
+    "source_reviewer": "security_validation",
+    "problem": "Daily cap check bypass allows financial fraud.",
+    "failure_scenario": "Exploiting limit calculation to bypass KYC transfer limits.",
+    "diff": "--- a/src/main/java/com/nexus/account/transfer/DailyTransferLimitPolicy.java\n+++ b/src/main/java/com/nexus/account/transfer/DailyTransferLimitPolicy.java\n@@ -6,6 +6,6 @@\n @Component\n public class DailyTransferLimitPolicy {\n     public boolean isTransferWithinDailyCap(BigDecimal currentSpent, BigDecimal requestedAmount, BigDecimal dailyCap) {\n-        return currentSpent.add(requestedAmount).compareTo(dailyCap) <= 0;\n+        return currentSpent.subtract(requestedAmount).compareTo(dailyCap) <= 0;\n     }\n }\n",
+    "after_source": "package com.nexus.account.transfer;\n\nimport java.math.BigDecimal;\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class DailyTransferLimitPolicy {\n    public boolean isTransferWithinDailyCap(BigDecimal currentSpent, BigDecimal requestedAmount, BigDecimal dailyCap) {\n        return currentSpent.subtract(requestedAmount).compareTo(dailyCap) <= 0;\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-024-maintainability-cand-2",
+    "scenario_id": "BV2-024",
+    "file_path": "src/main/java/com/nexus/account/transfer/DailyTransferLimitPolicy.java",
+    "changed_method": "isTransferWithinDailyCap",
+    "changed_lines": [
+      9
+    ],
+    "source_reviewer": "maintainability",
+    "problem": "Daily cap subtraction logic should be documented with explanatory comments.",
+    "failure_scenario": "Lack of business documentation impairs onboarding.",
+    "diff": "--- a/src/main/java/com/nexus/account/transfer/DailyTransferLimitPolicy.java\n+++ b/src/main/java/com/nexus/account/transfer/DailyTransferLimitPolicy.java\n@@ -6,6 +6,6 @@\n @Component\n public class DailyTransferLimitPolicy {\n     public boolean isTransferWithinDailyCap(BigDecimal currentSpent, BigDecimal requestedAmount, BigDecimal dailyCap) {\n-        return currentSpent.add(requestedAmount).compareTo(dailyCap) <= 0;\n+        return currentSpent.subtract(requestedAmount).compareTo(dailyCap) <= 0;\n     }\n }\n",
+    "after_source": "package com.nexus.account.transfer;\n\nimport java.math.BigDecimal;\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class DailyTransferLimitPolicy {\n    public boolean isTransferWithinDailyCap(BigDecimal currentSpent, BigDecimal requestedAmount, BigDecimal dailyCap) {\n        return currentSpent.subtract(requestedAmount).compareTo(dailyCap) <= 0;\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-025-correctness_logic-cand-0",
+    "scenario_id": "BV2-025",
+    "file_path": "src/main/java/com/nexus/customer/mapper/UserProfileDtoMapper.java",
+    "changed_method": "mapToEntity",
+    "changed_lines": [
+      10
+    ],
+    "source_reviewer": "correctness_logic",
+    "problem": "Field mapping error: dto.getPhoneNumber() is mapped to emailAddress, overwriting user email with phone number.",
+    "failure_scenario": "User profile updates will corrupt email address records in database with phone number strings.",
+    "diff": "--- a/src/main/java/com/nexus/customer/mapper/UserProfileDtoMapper.java\n+++ b/src/main/java/com/nexus/customer/mapper/UserProfileDtoMapper.java\n@@ -7,7 +7,7 @@\n     public UserEntity mapToEntity(UserProfileDto dto) {\n         UserEntity entity = new UserEntity();\n         entity.setUsername(dto.getUsername());\n-        entity.setEmailAddress(dto.getEmailAddress());\n+        entity.setEmailAddress(dto.getPhoneNumber());\n         entity.setPhoneNumber(dto.getPhoneNumber());\n         return entity;\n     }\n",
+    "after_source": "package com.nexus.customer.mapper;\n\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class UserProfileDtoMapper {\n    public UserEntity mapToEntity(UserProfileDto dto) {\n        UserEntity entity = new UserEntity();\n        entity.setUsername(dto.getUsername());\n        entity.setEmailAddress(dto.getPhoneNumber());\n        entity.setPhoneNumber(dto.getPhoneNumber());\n        return entity;\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-025-maintainability-cand-1",
+    "scenario_id": "BV2-025",
+    "file_path": "src/main/java/com/nexus/customer/mapper/UserProfileDtoMapper.java",
+    "changed_method": "mapToEntity",
+    "changed_lines": [
+      10
+    ],
+    "source_reviewer": "maintainability",
+    "problem": "Consider using MapStruct instead of manual DTO mapping.",
+    "failure_scenario": "Manual mapping boilerplate code.",
+    "diff": "--- a/src/main/java/com/nexus/customer/mapper/UserProfileDtoMapper.java\n+++ b/src/main/java/com/nexus/customer/mapper/UserProfileDtoMapper.java\n@@ -7,7 +7,7 @@\n     public UserEntity mapToEntity(UserProfileDto dto) {\n         UserEntity entity = new UserEntity();\n         entity.setUsername(dto.getUsername());\n-        entity.setEmailAddress(dto.getEmailAddress());\n+        entity.setEmailAddress(dto.getPhoneNumber());\n         entity.setPhoneNumber(dto.getPhoneNumber());\n         return entity;\n     }\n",
+    "after_source": "package com.nexus.customer.mapper;\n\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class UserProfileDtoMapper {\n    public UserEntity mapToEntity(UserProfileDto dto) {\n        UserEntity entity = new UserEntity();\n        entity.setUsername(dto.getUsername());\n        entity.setEmailAddress(dto.getPhoneNumber());\n        entity.setPhoneNumber(dto.getPhoneNumber());\n        return entity;\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-025-security_validation-cand-2",
+    "scenario_id": "BV2-025",
+    "file_path": "src/main/java/com/nexus/customer/mapper/UserProfileDtoMapper.java",
+    "changed_method": "mapToEntity",
+    "changed_lines": [
+      10
+    ],
+    "source_reviewer": "security_validation",
+    "problem": "PII leakage: user email is replaced with phone number without consent verification.",
+    "failure_scenario": "Profile update endpoint exposes telephone number in email field.",
+    "diff": "--- a/src/main/java/com/nexus/customer/mapper/UserProfileDtoMapper.java\n+++ b/src/main/java/com/nexus/customer/mapper/UserProfileDtoMapper.java\n@@ -7,7 +7,7 @@\n     public UserEntity mapToEntity(UserProfileDto dto) {\n         UserEntity entity = new UserEntity();\n         entity.setUsername(dto.getUsername());\n-        entity.setEmailAddress(dto.getEmailAddress());\n+        entity.setEmailAddress(dto.getPhoneNumber());\n         entity.setPhoneNumber(dto.getPhoneNumber());\n         return entity;\n     }\n",
+    "after_source": "package com.nexus.customer.mapper;\n\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class UserProfileDtoMapper {\n    public UserEntity mapToEntity(UserProfileDto dto) {\n        UserEntity entity = new UserEntity();\n        entity.setUsername(dto.getUsername());\n        entity.setEmailAddress(dto.getPhoneNumber());\n        entity.setPhoneNumber(dto.getPhoneNumber());\n        return entity;\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-026-security_validation-cand-0",
+    "scenario_id": "BV2-026",
+    "file_path": "src/main/java/com/nexus/tenant/isolation/TenantDataFilter.java",
+    "changed_method": "hasTenantAccess",
+    "changed_lines": [
+      8
+    ],
+    "source_reviewer": "security_validation",
+    "problem": "Multi-tenant isolation broken: record tenantId is matched against session userId, causing tenant access denial or cross-tenant data exposure.",
+    "failure_scenario": "Users from one organization cannot access their company records, and any user whose userId happens to match a tenantId gains cross-tenant data access.",
+    "diff": "--- a/src/main/java/com/nexus/tenant/isolation/TenantDataFilter.java\n+++ b/src/main/java/com/nexus/tenant/isolation/TenantDataFilter.java\n@@ -5,6 +5,6 @@\n @Component\n public class TenantDataFilter {\n     public boolean hasTenantAccess(String recordTenantId, UserSession session) {\n-        return recordTenantId != null && recordTenantId.equals(session.getTenantId());\n+        return recordTenantId != null && recordTenantId.equals(session.getUserId());\n     }\n }\n",
+    "after_source": "package com.nexus.tenant.isolation;\n\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class TenantDataFilter {\n    public boolean hasTenantAccess(String recordTenantId, UserSession session) {\n        return recordTenantId != null && recordTenantId.equals(session.getUserId());\n    }\n}\n",
+    "context_scope_required": "CROSS_METHOD"
+  },
+  {
+    "candidate_id": "BV2-026-correctness_logic-cand-1",
+    "scenario_id": "BV2-026",
+    "file_path": "src/main/java/com/nexus/tenant/isolation/TenantDataFilter.java",
+    "changed_method": "hasTenantAccess",
+    "changed_lines": [
+      8
+    ],
+    "source_reviewer": "correctness_logic",
+    "problem": "Incorrect session property checked for tenant validation.",
+    "failure_scenario": "Logic fails to authenticate valid tenant requests.",
+    "diff": "--- a/src/main/java/com/nexus/tenant/isolation/TenantDataFilter.java\n+++ b/src/main/java/com/nexus/tenant/isolation/TenantDataFilter.java\n@@ -5,6 +5,6 @@\n @Component\n public class TenantDataFilter {\n     public boolean hasTenantAccess(String recordTenantId, UserSession session) {\n-        return recordTenantId != null && recordTenantId.equals(session.getTenantId());\n+        return recordTenantId != null && recordTenantId.equals(session.getUserId());\n     }\n }\n",
+    "after_source": "package com.nexus.tenant.isolation;\n\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class TenantDataFilter {\n    public boolean hasTenantAccess(String recordTenantId, UserSession session) {\n        return recordTenantId != null && recordTenantId.equals(session.getUserId());\n    }\n}\n",
+    "context_scope_required": "CROSS_METHOD"
+  },
+  {
+    "candidate_id": "BV2-026-maintainability-cand-2",
+    "scenario_id": "BV2-026",
+    "file_path": "src/main/java/com/nexus/tenant/isolation/TenantDataFilter.java",
+    "changed_method": "hasTenantAccess",
+    "changed_lines": [
+      8
+    ],
+    "source_reviewer": "maintainability",
+    "problem": "Use TenantContextHolder thread-local instead of passing session parameter.",
+    "failure_scenario": "Explicit session passing increases method coupling.",
+    "diff": "--- a/src/main/java/com/nexus/tenant/isolation/TenantDataFilter.java\n+++ b/src/main/java/com/nexus/tenant/isolation/TenantDataFilter.java\n@@ -5,6 +5,6 @@\n @Component\n public class TenantDataFilter {\n     public boolean hasTenantAccess(String recordTenantId, UserSession session) {\n-        return recordTenantId != null && recordTenantId.equals(session.getTenantId());\n+        return recordTenantId != null && recordTenantId.equals(session.getUserId());\n     }\n }\n",
+    "after_source": "package com.nexus.tenant.isolation;\n\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class TenantDataFilter {\n    public boolean hasTenantAccess(String recordTenantId, UserSession session) {\n        return recordTenantId != null && recordTenantId.equals(session.getUserId());\n    }\n}\n",
+    "context_scope_required": "CROSS_METHOD"
+  },
+  {
+    "candidate_id": "BV2-027-correctness_logic-cand-0",
+    "scenario_id": "BV2-027",
+    "file_path": "src/main/java/com/nexus/subscription/renewal/GracePeriodEvaluator.java",
+    "changed_method": "isAccountInGracePeriod",
+    "changed_lines": [
+      9
+    ],
+    "source_reviewer": "correctness_logic",
+    "problem": "Impossible date range 'now.isAfter(expiryDate) && now.isBefore(expiryDate)' eliminates grace period functionality.",
+    "failure_scenario": "Subscribers whose renewal fails are immediately locked out without the contractual grace period.",
+    "diff": "--- a/src/main/java/com/nexus/subscription/renewal/GracePeriodEvaluator.java\n+++ b/src/main/java/com/nexus/subscription/renewal/GracePeriodEvaluator.java\n@@ -6,7 +6,6 @@\n @Service\n public class GracePeriodEvaluator {\n     public boolean isAccountInGracePeriod(LocalDate now, LocalDate expiryDate, int graceDays) {\n-        LocalDate graceEnd = expiryDate.plusDays(graceDays);\n-        return now.isAfter(expiryDate) && now.isBefore(graceEnd);\n+        return now.isAfter(expiryDate) && now.isBefore(expiryDate);\n     }\n }\n",
+    "after_source": "package com.nexus.subscription.renewal;\n\nimport java.time.LocalDate;\nimport org.springframework.stereotype.Service;\n\n@Service\npublic class GracePeriodEvaluator {\n    public boolean isAccountInGracePeriod(LocalDate now, LocalDate expiryDate, int graceDays) {\n        return now.isAfter(expiryDate) && now.isBefore(expiryDate);\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-027-security_validation-cand-2",
+    "scenario_id": "BV2-027",
+    "file_path": "src/main/java/com/nexus/subscription/renewal/GracePeriodEvaluator.java",
+    "changed_method": "isAccountInGracePeriod",
+    "changed_lines": [
+      9
+    ],
+    "source_reviewer": "security_validation",
+    "problem": "Subscription grace period bypass vulnerability.",
+    "failure_scenario": "Users can exploit date parsing to extend unpaid subscription access.",
+    "diff": "--- a/src/main/java/com/nexus/subscription/renewal/GracePeriodEvaluator.java\n+++ b/src/main/java/com/nexus/subscription/renewal/GracePeriodEvaluator.java\n@@ -6,7 +6,6 @@\n @Service\n public class GracePeriodEvaluator {\n     public boolean isAccountInGracePeriod(LocalDate now, LocalDate expiryDate, int graceDays) {\n-        LocalDate graceEnd = expiryDate.plusDays(graceDays);\n-        return now.isAfter(expiryDate) && now.isBefore(graceEnd);\n+        return now.isAfter(expiryDate) && now.isBefore(expiryDate);\n     }\n }\n",
+    "after_source": "package com.nexus.subscription.renewal;\n\nimport java.time.LocalDate;\nimport org.springframework.stereotype.Service;\n\n@Service\npublic class GracePeriodEvaluator {\n    public boolean isAccountInGracePeriod(LocalDate now, LocalDate expiryDate, int graceDays) {\n        return now.isAfter(expiryDate) && now.isBefore(expiryDate);\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-031-security_validation-cand-1",
+    "scenario_id": "BV2-031",
+    "file_path": "src/main/java/com/nexus/utility/sanitizer/PathSanitizer.java",
+    "changed_method": "normalizeSafeSubpath",
+    "changed_lines": [
+      5
+    ],
+    "source_reviewer": "security_validation",
+    "problem": "Incomplete path traversal sanitization allows bypass using encoded dots.",
+    "failure_scenario": "Path traversal check can be bypassed with URL encoding.",
+    "diff": "--- a/src/main/java/com/nexus/utility/sanitizer/PathSanitizer.java\n+++ b/src/main/java/com/nexus/utility/sanitizer/PathSanitizer.java\n@@ -2,6 +2,6 @@\n \n public class PathSanitizer {\n     public String normalizeSafeSubpath(String rawPath) {\n-        return rawPath.replace(\"..\", \"\");\n+        return rawPath == null ? \"\" : rawPath.trim().replace(\"..\", \"\");\n     }\n }\n",
+    "after_source": "package com.nexus.utility.sanitizer;\n\npublic class PathSanitizer {\n    public String normalizeSafeSubpath(String rawPath) {\n        return rawPath == null ? \"\" : rawPath.trim().replace(\"..\", \"\");\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-031-maintainability-cand-2",
+    "scenario_id": "BV2-031",
+    "file_path": "src/main/java/com/nexus/utility/sanitizer/PathSanitizer.java",
+    "changed_method": "normalizeSafeSubpath",
+    "changed_lines": [
+      5
+    ],
+    "source_reviewer": "maintainability",
+    "problem": "Ternary operator is redundant and can be replaced with rawPath.trim().",
+    "failure_scenario": "Simplifying ternary expression improves readability.",
+    "diff": "--- a/src/main/java/com/nexus/utility/sanitizer/PathSanitizer.java\n+++ b/src/main/java/com/nexus/utility/sanitizer/PathSanitizer.java\n@@ -2,6 +2,6 @@\n \n public class PathSanitizer {\n     public String normalizeSafeSubpath(String rawPath) {\n-        return rawPath.replace(\"..\", \"\");\n+        return rawPath == null ? \"\" : rawPath.trim().replace(\"..\", \"\");\n     }\n }\n",
+    "after_source": "package com.nexus.utility.sanitizer;\n\npublic class PathSanitizer {\n    public String normalizeSafeSubpath(String rawPath) {\n        return rawPath == null ? \"\" : rawPath.trim().replace(\"..\", \"\");\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-032-security_validation-cand-1",
+    "scenario_id": "BV2-032",
+    "file_path": "src/main/java/com/nexus/io/safe/AutoClosingResourceHandler.java",
+    "changed_method": "loadConfigurationBytes",
+    "changed_lines": [
+      9,
+      10,
+      11
+    ],
+    "source_reviewer": "security_validation",
+    "problem": "File path traversal vulnerability when opening configuration file.",
+    "failure_scenario": "Arbitrary file disclosure via cfgFile parameter.",
+    "diff": "--- a/src/main/java/com/nexus/io/safe/AutoClosingResourceHandler.java\n+++ b/src/main/java/com/nexus/io/safe/AutoClosingResourceHandler.java\n@@ -6,7 +6,8 @@\n \n public class AutoClosingResourceHandler {\n     public byte[] loadConfigurationBytes(File cfgFile) throws IOException {\n-        FileInputStream fis = new FileInputStream(cfgFile);\n-        return fis.readAllBytes();\n+        try (FileInputStream fis = new FileInputStream(cfgFile)) {\n+            return fis.readAllBytes();\n+        }\n     }\n }\n",
+    "after_source": "package com.nexus.io.safe;\n\nimport java.io.File;\nimport java.io.FileInputStream;\nimport java.io.IOException;\n\npublic class AutoClosingResourceHandler {\n    public byte[] loadConfigurationBytes(File cfgFile) throws IOException {\n        try (FileInputStream fis = new FileInputStream(cfgFile)) {\n            return fis.readAllBytes();\n        }\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-033-security_validation-cand-0",
+    "scenario_id": "BV2-033",
+    "file_path": "src/main/java/com/nexus/auth/display/UserRoleDisplayHelper.java",
+    "changed_method": "formatRoleBadge",
+    "changed_lines": [
+      8
+    ],
+    "source_reviewer": "security_validation",
+    "problem": "Hardcoded security credential 'ROLE_BADGE_ADMINISTRATOR' exposed in source code.",
+    "failure_scenario": "Exposing administrator role string allows attackers to forge security credentials.",
+    "diff": "--- a/src/main/java/com/nexus/auth/display/UserRoleDisplayHelper.java\n+++ b/src/main/java/com/nexus/auth/display/UserRoleDisplayHelper.java\n@@ -5,6 +5,6 @@\n @Component\n public class UserRoleDisplayHelper {\n     public String formatRoleBadge(boolean isAdmin) {\n-        return isAdmin ? \"ADMIN\" : \"MEMBER\";\n+        return isAdmin ? \"ROLE_BADGE_ADMINISTRATOR\" : \"ROLE_BADGE_MEMBER\";\n     }\n }\n",
+    "after_source": "package com.nexus.auth.display;\n\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class UserRoleDisplayHelper {\n    public String formatRoleBadge(boolean isAdmin) {\n        return isAdmin ? \"ROLE_BADGE_ADMINISTRATOR\" : \"ROLE_BADGE_MEMBER\";\n    }\n}\n",
+    "context_scope_required": "LINE"
+  },
+  {
+    "candidate_id": "BV2-033-maintainability-cand-1",
+    "scenario_id": "BV2-033",
+    "file_path": "src/main/java/com/nexus/auth/display/UserRoleDisplayHelper.java",
+    "changed_method": "formatRoleBadge",
+    "changed_lines": [
+      8
+    ],
+    "source_reviewer": "maintainability",
+    "problem": "Magic string should be moved to message bundle.",
+    "failure_scenario": "Internationalization support is impaired.",
+    "diff": "--- a/src/main/java/com/nexus/auth/display/UserRoleDisplayHelper.java\n+++ b/src/main/java/com/nexus/auth/display/UserRoleDisplayHelper.java\n@@ -5,6 +5,6 @@\n @Component\n public class UserRoleDisplayHelper {\n     public String formatRoleBadge(boolean isAdmin) {\n-        return isAdmin ? \"ADMIN\" : \"MEMBER\";\n+        return isAdmin ? \"ROLE_BADGE_ADMINISTRATOR\" : \"ROLE_BADGE_MEMBER\";\n     }\n }\n",
+    "after_source": "package com.nexus.auth.display;\n\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class UserRoleDisplayHelper {\n    public String formatRoleBadge(boolean isAdmin) {\n        return isAdmin ? \"ROLE_BADGE_ADMINISTRATOR\" : \"ROLE_BADGE_MEMBER\";\n    }\n}\n",
+    "context_scope_required": "LINE"
+  },
+  {
+    "candidate_id": "BV2-033-correctness_logic-cand-2",
+    "scenario_id": "BV2-033",
+    "file_path": "src/main/java/com/nexus/auth/display/UserRoleDisplayHelper.java",
+    "changed_method": "formatRoleBadge",
+    "changed_lines": [
+      8
+    ],
+    "source_reviewer": "correctness_logic",
+    "problem": "formatRoleBadge returns different string format breaking existing frontend badge styling.",
+    "failure_scenario": "UI components expecting short role strings may render visual overflow.",
+    "diff": "--- a/src/main/java/com/nexus/auth/display/UserRoleDisplayHelper.java\n+++ b/src/main/java/com/nexus/auth/display/UserRoleDisplayHelper.java\n@@ -5,6 +5,6 @@\n @Component\n public class UserRoleDisplayHelper {\n     public String formatRoleBadge(boolean isAdmin) {\n-        return isAdmin ? \"ADMIN\" : \"MEMBER\";\n+        return isAdmin ? \"ROLE_BADGE_ADMINISTRATOR\" : \"ROLE_BADGE_MEMBER\";\n     }\n }\n",
+    "after_source": "package com.nexus.auth.display;\n\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class UserRoleDisplayHelper {\n    public String formatRoleBadge(boolean isAdmin) {\n        return isAdmin ? \"ROLE_BADGE_ADMINISTRATOR\" : \"ROLE_BADGE_MEMBER\";\n    }\n}\n",
+    "context_scope_required": "LINE"
+  },
+  {
+    "candidate_id": "BV2-034-security_validation-cand-0",
+    "scenario_id": "BV2-034",
+    "file_path": "src/main/java/com/nexus/access/rbac/MembershipPermissionGuard.java",
+    "changed_method": "isAuthorizedMember",
+    "changed_lines": [
+      8
+    ],
+    "source_reviewer": "security_validation",
+    "problem": "Inverted membership authorization condition permits deactivated users.",
+    "failure_scenario": "Inactive team members can access protected team resources.",
+    "diff": "--- a/src/main/java/com/nexus/access/rbac/MembershipPermissionGuard.java\n+++ b/src/main/java/com/nexus/access/rbac/MembershipPermissionGuard.java\n@@ -5,6 +5,6 @@\n @Component\n public class MembershipPermissionGuard {\n     public boolean isAuthorizedMember(TeamMembership membership, String targetTeamId) {\n-        return membership.getTeamId().equals(targetTeamId);\n+        return membership != null && membership.isActive() && targetTeamId != null && targetTeamId.equals(membership.getTeamId());\n     }\n }\n",
+    "after_source": "package com.nexus.access.rbac;\n\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class MembershipPermissionGuard {\n    public boolean isAuthorizedMember(TeamMembership membership, String targetTeamId) {\n        return membership != null && membership.isActive() && targetTeamId != null && targetTeamId.equals(membership.getTeamId());\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-034-correctness_logic-cand-1",
+    "scenario_id": "BV2-034",
+    "file_path": "src/main/java/com/nexus/access/rbac/MembershipPermissionGuard.java",
+    "changed_method": "isAuthorizedMember",
+    "changed_lines": [
+      8
+    ],
+    "source_reviewer": "correctness_logic",
+    "problem": "Potential NullPointerException on membership.getTeamId() invocation.",
+    "failure_scenario": "If getTeamId() returns null, calling equals throws NullPointerException.",
+    "diff": "--- a/src/main/java/com/nexus/access/rbac/MembershipPermissionGuard.java\n+++ b/src/main/java/com/nexus/access/rbac/MembershipPermissionGuard.java\n@@ -5,6 +5,6 @@\n @Component\n public class MembershipPermissionGuard {\n     public boolean isAuthorizedMember(TeamMembership membership, String targetTeamId) {\n-        return membership.getTeamId().equals(targetTeamId);\n+        return membership != null && membership.isActive() && targetTeamId != null && targetTeamId.equals(membership.getTeamId());\n     }\n }\n",
+    "after_source": "package com.nexus.access.rbac;\n\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class MembershipPermissionGuard {\n    public boolean isAuthorizedMember(TeamMembership membership, String targetTeamId) {\n        return membership != null && membership.isActive() && targetTeamId != null && targetTeamId.equals(membership.getTeamId());\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-034-maintainability-cand-2",
+    "scenario_id": "BV2-034",
+    "file_path": "src/main/java/com/nexus/access/rbac/MembershipPermissionGuard.java",
+    "changed_method": "isAuthorizedMember",
+    "changed_lines": [
+      8
+    ],
+    "source_reviewer": "maintainability",
+    "problem": "Complex boolean condition in return statement should be split into multiple guard clauses.",
+    "failure_scenario": "Chaining four boolean conditions reduces readability.",
+    "diff": "--- a/src/main/java/com/nexus/access/rbac/MembershipPermissionGuard.java\n+++ b/src/main/java/com/nexus/access/rbac/MembershipPermissionGuard.java\n@@ -5,6 +5,6 @@\n @Component\n public class MembershipPermissionGuard {\n     public boolean isAuthorizedMember(TeamMembership membership, String targetTeamId) {\n-        return membership.getTeamId().equals(targetTeamId);\n+        return membership != null && membership.isActive() && targetTeamId != null && targetTeamId.equals(membership.getTeamId());\n     }\n }\n",
+    "after_source": "package com.nexus.access.rbac;\n\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class MembershipPermissionGuard {\n    public boolean isAuthorizedMember(TeamMembership membership, String targetTeamId) {\n        return membership != null && membership.isActive() && targetTeamId != null && targetTeamId.equals(membership.getTeamId());\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-035-correctness_logic-cand-0",
+    "scenario_id": "BV2-035",
+    "file_path": "src/main/java/com/nexus/collections/defensive/ImmutableListHelper.java",
+    "changed_method": "copyElementsSafely",
+    "changed_lines": [
+      7
+    ],
+    "source_reviewer": "correctness_logic",
+    "problem": "Null pointer exception if inputList is null when passing to List.copyOf.",
+    "failure_scenario": "Calling List.copyOf with null argument causes NullPointerException.",
+    "diff": "--- a/src/main/java/com/nexus/collections/defensive/ImmutableListHelper.java\n+++ b/src/main/java/com/nexus/collections/defensive/ImmutableListHelper.java\n@@ -4,6 +4,6 @@\n \n public class ImmutableListHelper {\n     public <T> List<T> copyElementsSafely(List<T> inputList) {\n-        return inputList;\n+        return inputList == null ? List.of() : List.copyOf(inputList);\n     }\n }\n",
+    "after_source": "package com.nexus.collections.defensive;\n\nimport java.util.List;\n\npublic class ImmutableListHelper {\n    public <T> List<T> copyElementsSafely(List<T> inputList) {\n        return inputList == null ? List.of() : List.copyOf(inputList);\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-035-maintainability-cand-1",
+    "scenario_id": "BV2-035",
+    "file_path": "src/main/java/com/nexus/collections/defensive/ImmutableListHelper.java",
+    "changed_method": "copyElementsSafely",
+    "changed_lines": [
+      7
+    ],
+    "source_reviewer": "maintainability",
+    "problem": "Ternary operator is redundant and can be replaced with Collections.unmodifiableList.",
+    "failure_scenario": "Reduces readability.",
+    "diff": "--- a/src/main/java/com/nexus/collections/defensive/ImmutableListHelper.java\n+++ b/src/main/java/com/nexus/collections/defensive/ImmutableListHelper.java\n@@ -4,6 +4,6 @@\n \n public class ImmutableListHelper {\n     public <T> List<T> copyElementsSafely(List<T> inputList) {\n-        return inputList;\n+        return inputList == null ? List.of() : List.copyOf(inputList);\n     }\n }\n",
+    "after_source": "package com.nexus.collections.defensive;\n\nimport java.util.List;\n\npublic class ImmutableListHelper {\n    public <T> List<T> copyElementsSafely(List<T> inputList) {\n        return inputList == null ? List.of() : List.copyOf(inputList);\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-035-security_validation-cand-2",
+    "scenario_id": "BV2-035",
+    "file_path": "src/main/java/com/nexus/collections/defensive/ImmutableListHelper.java",
+    "changed_method": "copyElementsSafely",
+    "changed_lines": [
+      7
+    ],
+    "source_reviewer": "security_validation",
+    "problem": "Unsafe deserialization risk when returning defensive copy of element list.",
+    "failure_scenario": "Elements inside list could contain mutable objects vulnerable to tampering.",
+    "diff": "--- a/src/main/java/com/nexus/collections/defensive/ImmutableListHelper.java\n+++ b/src/main/java/com/nexus/collections/defensive/ImmutableListHelper.java\n@@ -4,6 +4,6 @@\n \n public class ImmutableListHelper {\n     public <T> List<T> copyElementsSafely(List<T> inputList) {\n-        return inputList;\n+        return inputList == null ? List.of() : List.copyOf(inputList);\n     }\n }\n",
+    "after_source": "package com.nexus.collections.defensive;\n\nimport java.util.List;\n\npublic class ImmutableListHelper {\n    public <T> List<T> copyElementsSafely(List<T> inputList) {\n        return inputList == null ? List.of() : List.copyOf(inputList);\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-036-security_validation-cand-0",
+    "scenario_id": "BV2-036",
+    "file_path": "src/main/java/com/nexus/payment/gateway/WebhookSignatureValidator.java",
+    "changed_method": "isSignatureValid",
+    "changed_lines": [
+      3,
+      4,
+      10,
+      11,
+      12,
+      13
+    ],
+    "source_reviewer": "security_validation",
+    "problem": "Timing attack vulnerability due to byte array comparison in signature validation.",
+    "failure_scenario": "Attackers can measure microsecond differences during signature validation to forge signatures.",
+    "diff": "--- a/src/main/java/com/nexus/payment/gateway/WebhookSignatureValidator.java\n+++ b/src/main/java/com/nexus/payment/gateway/WebhookSignatureValidator.java\n@@ -1,10 +1,15 @@\n package com.nexus.payment.gateway;\n \n+import java.nio.charset.StandardCharsets;\n+import java.security.MessageDigest;\n import org.springframework.stereotype.Component;\n \n @Component\n public class WebhookSignatureValidator {\n     public boolean isSignatureValid(String expectedSig, String incomingSig) {\n-        return expectedSig != null && expectedSig.equals(incomingSig);\n+        if (expectedSig == null || incomingSig == null) {\n+            return false;\n+        }\n+        return MessageDigest.isEqual(expectedSig.getBytes(StandardCharsets.UTF_8), incomingSig.getBytes(StandardCharsets.UTF_8));\n     }\n }\n",
+    "after_source": "package com.nexus.payment.gateway;\n\nimport java.nio.charset.StandardCharsets;\nimport java.security.MessageDigest;\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class WebhookSignatureValidator {\n    public boolean isSignatureValid(String expectedSig, String incomingSig) {\n        if (expectedSig == null || incomingSig == null) {\n            return false;\n        }\n        return MessageDigest.isEqual(expectedSig.getBytes(StandardCharsets.UTF_8), incomingSig.getBytes(StandardCharsets.UTF_8));\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-036-maintainability-cand-2",
+    "scenario_id": "BV2-036",
+    "file_path": "src/main/java/com/nexus/payment/gateway/WebhookSignatureValidator.java",
+    "changed_method": "isSignatureValid",
+    "changed_lines": [
+      3,
+      4,
+      10,
+      11,
+      12,
+      13
+    ],
+    "source_reviewer": "maintainability",
+    "problem": "Use StandardCharsets.UTF_8 constant directly without re-encoding byte arrays.",
+    "failure_scenario": "String encoding can be cached.",
+    "diff": "--- a/src/main/java/com/nexus/payment/gateway/WebhookSignatureValidator.java\n+++ b/src/main/java/com/nexus/payment/gateway/WebhookSignatureValidator.java\n@@ -1,10 +1,15 @@\n package com.nexus.payment.gateway;\n \n+import java.nio.charset.StandardCharsets;\n+import java.security.MessageDigest;\n import org.springframework.stereotype.Component;\n \n @Component\n public class WebhookSignatureValidator {\n     public boolean isSignatureValid(String expectedSig, String incomingSig) {\n-        return expectedSig != null && expectedSig.equals(incomingSig);\n+        if (expectedSig == null || incomingSig == null) {\n+            return false;\n+        }\n+        return MessageDigest.isEqual(expectedSig.getBytes(StandardCharsets.UTF_8), incomingSig.getBytes(StandardCharsets.UTF_8));\n     }\n }\n",
+    "after_source": "package com.nexus.payment.gateway;\n\nimport java.nio.charset.StandardCharsets;\nimport java.security.MessageDigest;\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class WebhookSignatureValidator {\n    public boolean isSignatureValid(String expectedSig, String incomingSig) {\n        if (expectedSig == null || incomingSig == null) {\n            return false;\n        }\n        return MessageDigest.isEqual(expectedSig.getBytes(StandardCharsets.UTF_8), incomingSig.getBytes(StandardCharsets.UTF_8));\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-037-correctness_logic-cand-0",
+    "scenario_id": "BV2-037",
+    "file_path": "src/main/java/com/nexus/text/parser/NumericTokenParser.java",
+    "changed_method": "parsePositiveInteger",
+    "changed_lines": [
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "source_reviewer": "correctness_logic",
+    "problem": "Uncaught NumberFormatException when parsing invalid integer string.",
+    "failure_scenario": "Invalid numeric strings will crash the thread with unhandled exception.",
+    "diff": "--- a/src/main/java/com/nexus/text/parser/NumericTokenParser.java\n+++ b/src/main/java/com/nexus/text/parser/NumericTokenParser.java\n@@ -4,6 +4,14 @@\n \n public class NumericTokenParser {\n     public Optional<Integer> parsePositiveInteger(String text) {\n-        return Optional.of(Integer.parseInt(text));\n+        if (text == null || text.isBlank()) {\n+            return Optional.empty();\n+        }\n+        try {\n+            int val = Integer.parseInt(text.trim());\n+            return val > 0 ? Optional.of(val) : Optional.empty();\n+        } catch (NumberFormatException e) {\n+            return Optional.empty();\n+        }\n     }\n }\n",
+    "after_source": "package com.nexus.text.parser;\n\nimport java.util.Optional;\n\npublic class NumericTokenParser {\n    public Optional<Integer> parsePositiveInteger(String text) {\n        if (text == null || text.isBlank()) {\n            return Optional.empty();\n        }\n        try {\n            int val = Integer.parseInt(text.trim());\n            return val > 0 ? Optional.of(val) : Optional.empty();\n        } catch (NumberFormatException e) {\n            return Optional.empty();\n        }\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-037-maintainability-cand-1",
+    "scenario_id": "BV2-037",
+    "file_path": "src/main/java/com/nexus/text/parser/NumericTokenParser.java",
+    "changed_method": "parsePositiveInteger",
+    "changed_lines": [
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "source_reviewer": "maintainability",
+    "problem": "Empty catch block swallows NumberFormatException without logging.",
+    "failure_scenario": "Swallowing exceptions makes debugging parsing issues difficult.",
+    "diff": "--- a/src/main/java/com/nexus/text/parser/NumericTokenParser.java\n+++ b/src/main/java/com/nexus/text/parser/NumericTokenParser.java\n@@ -4,6 +4,14 @@\n \n public class NumericTokenParser {\n     public Optional<Integer> parsePositiveInteger(String text) {\n-        return Optional.of(Integer.parseInt(text));\n+        if (text == null || text.isBlank()) {\n+            return Optional.empty();\n+        }\n+        try {\n+            int val = Integer.parseInt(text.trim());\n+            return val > 0 ? Optional.of(val) : Optional.empty();\n+        } catch (NumberFormatException e) {\n+            return Optional.empty();\n+        }\n     }\n }\n",
+    "after_source": "package com.nexus.text.parser;\n\nimport java.util.Optional;\n\npublic class NumericTokenParser {\n    public Optional<Integer> parsePositiveInteger(String text) {\n        if (text == null || text.isBlank()) {\n            return Optional.empty();\n        }\n        try {\n            int val = Integer.parseInt(text.trim());\n            return val > 0 ? Optional.of(val) : Optional.empty();\n        } catch (NumberFormatException e) {\n            return Optional.empty();\n        }\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  },
+  {
+    "candidate_id": "BV2-037-security_validation-cand-2",
+    "scenario_id": "BV2-037",
+    "file_path": "src/main/java/com/nexus/text/parser/NumericTokenParser.java",
+    "changed_method": "parsePositiveInteger",
+    "changed_lines": [
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "source_reviewer": "security_validation",
+    "problem": "Denial of service through repetitive NumberFormatException throwing.",
+    "failure_scenario": "Parsing millions of invalid numeric strings incurs CPU overhead from stack trace generation.",
+    "diff": "--- a/src/main/java/com/nexus/text/parser/NumericTokenParser.java\n+++ b/src/main/java/com/nexus/text/parser/NumericTokenParser.java\n@@ -4,6 +4,14 @@\n \n public class NumericTokenParser {\n     public Optional<Integer> parsePositiveInteger(String text) {\n-        return Optional.of(Integer.parseInt(text));\n+        if (text == null || text.isBlank()) {\n+            return Optional.empty();\n+        }\n+        try {\n+            int val = Integer.parseInt(text.trim());\n+            return val > 0 ? Optional.of(val) : Optional.empty();\n+        } catch (NumberFormatException e) {\n+            return Optional.empty();\n+        }\n     }\n }\n",
+    "after_source": "package com.nexus.text.parser;\n\nimport java.util.Optional;\n\npublic class NumericTokenParser {\n    public Optional<Integer> parsePositiveInteger(String text) {\n        if (text == null || text.isBlank()) {\n            return Optional.empty();\n        }\n        try {\n            int val = Integer.parseInt(text.trim());\n            return val > 0 ? Optional.of(val) : Optional.empty();\n        } catch (NumberFormatException e) {\n            return Optional.empty();\n        }\n    }\n}\n",
+    "context_scope_required": "METHOD"
+  }
+]

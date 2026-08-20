@@ -1,0 +1,10 @@
+--- a/src/main/java/com/nexus/collections/defensive/ImmutableListHelper.java
++++ b/src/main/java/com/nexus/collections/defensive/ImmutableListHelper.java
+@@ -4,6 +4,6 @@
+ 
+ public class ImmutableListHelper {
+     public <T> List<T> copyElementsSafely(List<T> inputList) {
+-        return inputList;
++        return inputList == null ? List.of() : List.copyOf(inputList);
+     }
+ }

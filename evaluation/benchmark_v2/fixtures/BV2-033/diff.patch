@@ -1,0 +1,10 @@
+--- a/src/main/java/com/nexus/auth/display/UserRoleDisplayHelper.java
++++ b/src/main/java/com/nexus/auth/display/UserRoleDisplayHelper.java
+@@ -5,6 +5,6 @@
+ @Component
+ public class UserRoleDisplayHelper {
+     public String formatRoleBadge(boolean isAdmin) {
+-        return isAdmin ? "ADMIN" : "MEMBER";
++        return isAdmin ? "ROLE_BADGE_ADMINISTRATOR" : "ROLE_BADGE_MEMBER";
+     }
+ }

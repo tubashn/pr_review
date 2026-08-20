@@ -1,0 +1,10 @@
+--- a/src/main/java/com/nexus/core/filter/FeatureFlagEvaluator.java
++++ b/src/main/java/com/nexus/core/filter/FeatureFlagEvaluator.java
+@@ -2,6 +2,6 @@
+ 
+ public class FeatureFlagEvaluator {
+     public boolean isBetaUiEnabled(boolean betaFlag) {
+-        return betaFlag;
++        return betaFlag != false;
+     }
+ }

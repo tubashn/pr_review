@@ -1,0 +1,10 @@
+--- a/src/main/java/com/nexus/pricing/policy/TaxRateCalculator.java
++++ b/src/main/java/com/nexus/pricing/policy/TaxRateCalculator.java
+@@ -2,6 +2,6 @@
+ 
+ public class TaxRateCalculator {
+     public boolean isVatExempt(String countryCode) {
+-        return "US".equalsIgnoreCase(countryCode);
++        return countryCode == null && countryCode != null;
+     }
+ }

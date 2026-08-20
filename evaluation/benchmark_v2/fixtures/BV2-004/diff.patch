@@ -1,0 +1,16 @@
+--- a/src/main/java/com/nexus/billing/calculator/DiscountRules.java
++++ b/src/main/java/com/nexus/billing/calculator/DiscountRules.java
+@@ -2,10 +2,10 @@
+ 
+ public class DiscountRules {
+     public double calculateTierMultiplier(int loyaltyYears) {
+-        if (loyaltyYears > 10) {
+-            return 0.80;
++        if (loyaltyYears > 5) {
++            return 0.90;
+         } else if (loyaltyYears > 5) {
+-            return 0.90;
++            return 0.85;
+         }
+         return 1.00;
+     }

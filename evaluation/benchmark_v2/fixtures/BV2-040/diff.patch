@@ -1,0 +1,14 @@
+--- a/src/main/java/com/nexus/audit/trail/EventAuditRecorder.java
++++ b/src/main/java/com/nexus/audit/trail/EventAuditRecorder.java
+@@ -5,6 +5,10 @@
+ @Component
+ public class EventAuditRecorder {
+     public void recordAuditEvent(String eventType, String eventMessage) {
+-        System.out.println("AUDIT [" + eventType + "]: " + eventMessage);
++        if (eventType == null || eventMessage == null) {
++            return;
++        }
++        String safeMessage = eventMessage.replace('\n', '_').replace('\r', '_');
++        System.out.println("AUDIT [" + eventType + "]: " + safeMessage);
+     }
+ }

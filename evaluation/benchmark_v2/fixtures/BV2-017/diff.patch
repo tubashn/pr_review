@@ -1,0 +1,10 @@
+--- a/src/main/java/com/nexus/security/audit/SecurityAuditLogger.java
++++ b/src/main/java/com/nexus/security/audit/SecurityAuditLogger.java
+@@ -5,6 +5,7 @@
+ @Component
+ public class SecurityAuditLogger {
+     public void logAccessAttempt(String user, String clientIp) {
++        String maskedIpAddress = clientIp.replaceAll("\\.\\d+$", ".xxx");
+         System.out.println("Access attempt by user: " + user);
+     }
+ }

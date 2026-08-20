@@ -1,0 +1,13 @@
+--- a/src/main/java/com/nexus/filesystem/scanner/DirectoryChecksumScanner.java
++++ b/src/main/java/com/nexus/filesystem/scanner/DirectoryChecksumScanner.java
+@@ -6,8 +6,7 @@
+ 
+ public class DirectoryChecksumScanner {
+     public byte[] calculateFileHash(File targetFile) throws IOException {
+-        try (FileInputStream in = new FileInputStream(targetFile)) {
+-            return in.readAllBytes();
+-        }
++        FileInputStream in = new FileInputStream(targetFile);
++        return in.readAllBytes();
+     }
+ }

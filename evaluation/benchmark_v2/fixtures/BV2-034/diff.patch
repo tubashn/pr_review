@@ -1,0 +1,10 @@
+--- a/src/main/java/com/nexus/access/rbac/MembershipPermissionGuard.java
++++ b/src/main/java/com/nexus/access/rbac/MembershipPermissionGuard.java
+@@ -5,6 +5,6 @@
+ @Component
+ public class MembershipPermissionGuard {
+     public boolean isAuthorizedMember(TeamMembership membership, String targetTeamId) {
+-        return membership.getTeamId().equals(targetTeamId);
++        return membership != null && membership.isActive() && targetTeamId != null && targetTeamId.equals(membership.getTeamId());
+     }
+ }

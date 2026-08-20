@@ -1,0 +1,10 @@
+--- a/src/main/java/com/nexus/account/transfer/DailyTransferLimitPolicy.java
++++ b/src/main/java/com/nexus/account/transfer/DailyTransferLimitPolicy.java
+@@ -6,6 +6,6 @@
+ @Component
+ public class DailyTransferLimitPolicy {
+     public boolean isTransferWithinDailyCap(BigDecimal currentSpent, BigDecimal requestedAmount, BigDecimal dailyCap) {
+-        return currentSpent.add(requestedAmount).compareTo(dailyCap) <= 0;
++        return currentSpent.subtract(requestedAmount).compareTo(dailyCap) <= 0;
+     }
+ }
