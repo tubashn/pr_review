@@ -38,8 +38,39 @@ Pull Request
 * Base Qwen 7B verifier inference
 
 ### Planned
-* finding merger/deduplication
 * fix/patch agent
-* Maven build/test verification
-* final report
+* Maven test regression verification in PR pipeline
 * automatic email delivery
+
+---
+
+## Run the MVP (End-to-End Execution)
+
+Tam uçtan uca PR review akışını çalıştırmak için `run_pr_review.py` runner'ını kullanabilirsiniz:
+
+### 1. Mock / Dry-Run Modu (Hızlı Test)
+```bash
+python run_pr_review.py --repo <target-repo-path> --branch <pr-branch> --dry-run
+```
+
+### 2. Qwen2.5-Coder-7B (4-Bit NF4 / GPU)
+```bash
+python run_pr_review.py \
+  --repo <target-repo-path> \
+  --branch <pr-branch> \
+  --model Qwen/Qwen2.5-Coder-7B-Instruct \
+  --backend transformers \
+  --quantization 4bit \
+  --output pr_review_report.json
+```
+
+### 3. OpenAI-Compatible API Modu (vLLM / Ollama / Remote Endpoint)
+```bash
+python run_pr_review.py \
+  --repo <target-repo-path> \
+  --branch <pr-branch> \
+  --model Qwen/Qwen2.5-Coder-7B-Instruct \
+  --backend openai \
+  --api-base http://localhost:8000/v1 \
+  --output pr_review_report.json
+```

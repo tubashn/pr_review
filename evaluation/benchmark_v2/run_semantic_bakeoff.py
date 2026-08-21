@@ -168,25 +168,56 @@ class SemanticBakeoffRunner:
                 import torch
                 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
                 print(f"Loading {self.model_id} via HuggingFace Transformers...")
-                
+
+                is_deepseek_v2 = "deepseek-coder-v2" in self.model_id.lower()
+
+                # GPU compute dtype automatic selection (T4 capability 7.5 uses float16, Ampere+ uses bfloat16)
+                if torch.cuda.is_available():
+                    major, minor = torch.cuda.get_device_capability(0)
+                    compute_dtype = torch.bfloat16 if major >= 8 else torch.float16
+                else:
+                    compute_dtype = torch.float32
+
                 bnb_config = None
                 if self.quantization == "4bit":
                     bnb_config = BitsAndBytesConfig(
                         load_in_4bit=True,
                         bnb_4bit_quant_type="nf4",
-                        bnb_4bit_compute_dtype=torch.bfloat16,
+                        bnb_4bit_compute_dtype=compute_dtype,
                         bnb_4bit_use_double_quant=True
                     )
-                
-                self.tokenizer = AutoTokenizer.from_pretrained(self.model_id, trust_remote_code=True)
+
+                trust_remote_code_flag = False if is_deepseek_v2 else True
+                attn_impl = "eager" if is_deepseek_v2 else None
+
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    self.model_id,
+                    trust_remote_code=trust_remote_code_flag
+                )
+
+                model_kwargs = {
+                    "quantization_config": bnb_config,
+                    "device_map": self.device,
+                    "torch_dtype": compute_dtype if self.quantization != "4bit" else None,
+                    "trust_remote_code": trust_remote_code_flag
+                }
+                if attn_impl is not None:
+                    model_kwargs["attn_implementation"] = attn_impl
+
                 self.loaded_model = AutoModelForCausalLM.from_pretrained(
                     self.model_id,
-                    quantization_config=bnb_config,
-                    device_map=self.device,
-                    torch_dtype=torch.bfloat16 if self.quantization != "4bit" else None,
-                    trust_remote_code=True
+                    **model_kwargs
                 )
-                print(f"Model {self.model_id} loaded successfully!")
+
+                print("=========================================")
+                print("MODEL LOADED SUCCESSFULLY")
+                print("=========================================")
+                print(f"Model ID              : {self.model_id}")
+                print(f"Compute Dtype         : {compute_dtype}")
+                print(f"Quantization          : {self.quantization}")
+                print(f"Attention Impl        : {attn_impl or 'default'}")
+                print(f"Trust Remote Code     : {trust_remote_code_flag}")
+                print("=========================================")
             except Exception as e:
                 print(f"Error loading model {self.model_id}: {e}", file=sys.stderr)
                 raise
