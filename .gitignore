@@ -2,8 +2,9 @@ __pycache__/
 *.pyc
 .venv/
 venv/
-.env
-.env.*
+5: .env
+6: .env.*
+7: !.env.example
 *.key
 
 # Model / checkpoint files
