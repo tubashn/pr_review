@@ -1,0 +1,44 @@
+# Git & Python Bytecode
+.git
+.gitignore
+.gitattributes
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.coverage
+htmlcov/
+
+# Local Environment & Secrets
+.env
+.env.*
+*.key
+*.token
+*.pem
+credentials*
+
+# Hugging Face & Model Weights / Checkpoints
+models/
+checkpoints/
+adapters/
+*.safetensors
+*.bin
+*.pt
+*.pth
+.cache/
+hf_cache/
+
+# Local temporary worktrees, scratch & reports
+scratch/
+pr_review_report.json
+evaluation/reports/
+evaluation/benchmark_v2/reports/
+evaluation/results/
+training/*.jsonl
+training/*.log
+
+# Virtual Environments
+.venv
+venv
+ENV

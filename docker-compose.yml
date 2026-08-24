@@ -1,0 +1,31 @@
+services:
+  pr-review-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pr-review-agent
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PR_REVIEW_MODEL=${PR_REVIEW_MODEL:-Qwen/Qwen2.5-Coder-7B-Instruct}
+      - PR_REVIEW_BACKEND=${PR_REVIEW_BACKEND:-transformers}
+      - PR_REVIEW_QUANTIZATION=${PR_REVIEW_QUANTIZATION:-4bit}
+      - PR_REVIEW_DEVICE=${PR_REVIEW_DEVICE:-auto}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET:-}
+      - GITHUB_ALLOWED_REPOS=${GITHUB_ALLOWED_REPOS:-}
+    volumes:
+      # Persistent Hugging Face model cache on host (avoids redownloading on restart)
+      - hf_model_cache:/home/appuser/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  hf_model_cache:
+    name: pr_review_hf_model_cache

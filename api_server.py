@@ -80,6 +80,8 @@ class HealthResponse(BaseModel):
     quantization: str = Field(..., description="Model quantization mode")
     model_loaded: bool = Field(..., description="Whether model is currently loaded in memory")
     webhook_enabled: bool = Field(True, description="Whether GitHub webhook endpoint is active")
+    gpu_available: bool = Field(False, description="Whether CUDA GPU is accessible")
+    gpu_device: Optional[str] = Field(None, description="Name of accessible CUDA device if available")
 
 
 class ReviewRequest(BaseModel):
@@ -341,8 +343,18 @@ async def execute_webhook_background_review(
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 async def health_check():
-    """Returns service health, webhook status, and model loading status."""
+    """Returns service health, webhook status, GPU availability, and model loading status."""
     is_loaded = "model" in MODEL_CACHE and MODEL_CACHE["model"] is not None
+    gpu_available = False
+    gpu_device = None
+    try:
+        import torch
+        if torch.cuda.is_available():
+            gpu_available = True
+            gpu_device = torch.cuda.get_device_name(0)
+    except Exception:
+        pass
+
     return HealthResponse(
         status="ok",
         service="pr-review-agent",
@@ -350,7 +362,9 @@ async def health_check():
         backend=os.getenv("PR_REVIEW_BACKEND", DEFAULT_BACKEND),
         quantization=os.getenv("PR_REVIEW_QUANTIZATION", DEFAULT_QUANTIZATION),
         model_loaded=is_loaded,
-        webhook_enabled=True
+        webhook_enabled=True,
+        gpu_available=gpu_available,
+        gpu_device=gpu_device
     )
 
 

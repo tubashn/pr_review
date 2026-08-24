@@ -1,0 +1,12 @@
+# Core API & Server
+fastapi>=0.100.0
+uvicorn>=0.22.0
+pydantic>=2.0.0
+
+# Deep Learning Runtime & Quantization
+# Note: PyTorch & torchvision are provided with CUDA 12.1+ in the Docker image
+transformers==4.54.1
+accelerate>=0.30.0
+bitsandbytes>=0.43.0
+sentencepiece>=0.1.99
+protobuf>=3.20.0
