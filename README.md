@@ -1,5 +1,7 @@
 # PR Review - AI Pull Request Review Agent
 
+![CI](https://github.com/tubashn/pr_review/actions/workflows/ci.yml/badge.svg)
+
 AI ve deterministic static analysis kullanarak Pull Request'leri analiz eden deneysel code review sistemi.
 
 ## Current Architecture
@@ -265,3 +267,22 @@ curl -X POST http://localhost:8000/review \
     "pmd": false
   }'
 ```
+
+---
+
+## Continuous Integration (GitHub Actions)
+
+Projede `main` branch'ine yapılan her push ve pull request için otomatik GitHub Actions CI workflow'u (`.github/workflows/ci.yml`) çalışır.
+
+* **GPU Gerektirmez**: GitHub-hosted `ubuntu-latest` runner üzerinde `PR_REVIEW_BACKEND=mock` ile çalışır.
+* **Model İndirmesi Yapmaz**: `HF_HUB_OFFLINE=1` ve `TRANSFORMERS_OFFLINE=1` tanımlıdır; hiçbir LLM ağırlığı indirilmez.
+* **Kapsam**:
+  1. Python syntax & bytecode compilation check (`compileall`)
+  2. Core PR Review MVP & FastAPI server testleri (`test_pr_review_mvp.py`, `test_api_server.py`)
+  3. Deterministic Mock Backend testleri (`test_mock_backend.py`)
+  4. GitHub Webhook HMAC & Comment Client testleri (`test_webhook.py`, `test_github_client.py`)
+  5. Docker konfigürasyon & .dockerignore denetim testleri (`test_docker_setup.py`)
+  6. Bakeoff framework testleri (`test_bakeoff_framework.py`)
+  7. Benchmark V2 veri seti ve semantik denetim testleri (`validate_benchmark.py`, `ci_audit_runner.py`)
+* **Gerçek LLM / GPU Doğrulamaları**: Model kalite ve doğruluk bake-off testleri CI pipeline'ı dışında, özel GPU ortamlarında (Colab / Linux GPU sunucusu) yürütülür.
+* **Docker Build Politikası**: Full CUDA Docker build süresi uzun olduğundan CI aşamasında `test_docker_setup.py` ile statik konfigürasyon denetlenir; üretim CUDA image build işlemi deployment aşamasında yapılır.
