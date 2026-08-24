@@ -480,15 +480,8 @@ Full Changed Method Context:
 Verify this candidate and output the JSON verdict."""
 
         if self.backend == "mock" or self.dry_run:
-            # Deterministic Mock Output
-            return {
-                "candidate_id": cid,
-                "problem_present": True,
-                "role_match": True,
-                "reason": "Mock verified finding.",
-                "evidence": candidate.get("code_snippet", ""),
-                "parse_error": False
-            }
+            from mock_verifier import run_deterministic_mock_verification
+            return run_deterministic_mock_verification(candidate, formatted_diff)
         elif self.backend in ("transformers", "hf"):
             import torch
             messages = [

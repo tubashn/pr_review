@@ -218,3 +218,50 @@ Response örneği:
 
 ### 7. Production HTTPS & Reverse Proxy Notu
 Cloudflare quick tunnel (`cloudflared tunnel --url ...`) veya ngrok yalnızca yerel test ve geçici demolar içindir. Production ortamında GitHub Webhook'ları için kalıcı bir alan adı (domain) arkasında Nginx/Caddy reverse proxy ve geçerli SSL/TLS sertifikası kullanılmalıdır.
+
+---
+
+## Local Development Without GPU (Mock Backend)
+
+Laptop veya GPU bulunmayan ortamlarda ürün akışlarını (FastAPI, Webhook, HMAC doğrulama, Idempotency, GitHub Comment güncelleme) test etmek için **Mock Backend** (`PR_REVIEW_BACKEND=mock`) kullanılır.
+
+### 1. Mimari Mod Ayrımı
+| Özellik | Local / CI Development | Real Model Deployment |
+|---|---|---|
+| **Ortam** | Laptop / CPU Sunucu / CI Runner | NVIDIA GPU Sunucu (CUDA 12.1+) |
+| **Backend** | `PR_REVIEW_BACKEND=mock` | `PR_REVIEW_BACKEND=transformers` |
+| **Model** | Mock Verifier (İndirme YOK) | `Qwen/Qwen2.5-Coder-7B-Instruct` |
+| **Amaç** | Webhook, API, Idempotency, Comment entegrasyonu | Gerçek semantik kod analizi ve doğruluk |
+
+> ℹ️ **Not:** Mock backend model doğruluğunu ölçmek için kullanılmaz; yalnızca uçtan uca ürün ve entegrasyon geliştirme içindir.
+
+### 2. GPU'suz Docker Container Çalıştırma
+```bash
+# GPU rezervasyonu ve model indirmesi olmadan başlat
+docker compose -f docker-compose.dev.yml up -d --build
+
+# Health kontrolü (backend: mock, model_loaded: false)
+curl http://localhost:8000/health
+```
+
+### 3. Local Python ile Çalıştırma
+```bash
+# Ortam değişkenlerini ayarla
+export PR_REVIEW_BACKEND=mock
+export PR_REVIEW_DEVICE=cpu
+
+# Sunucuyu başlat
+python -m uvicorn api_server:app --host 0.0.0.0 --port 8000 --workers 1
+```
+
+### 4. Mock Review İsteği Örneği
+```bash
+curl -X POST http://localhost:8000/review \
+  -H "Content-Type: application/json" \
+  -d '{
+    "repo": "C:\\path\\to\\orderapp-server",
+    "branch": "tuba-test-hardcoded-secret",
+    "base": "main",
+    "pmd": false
+  }'
+```

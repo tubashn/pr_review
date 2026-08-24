@@ -1,0 +1,42 @@
+{
+  "test_accept_security": {
+    "problem": "Hardcoded secret API key",
+    "source_reviewer": "security_validation",
+    "problem_present": true,
+    "role_match": true,
+    "reason": "Mock fixture: Valid security vulnerability with hardcoded credentials in source code.",
+    "evidence": "String apiKey = \"sk_live_123456\";"
+  },
+  "test_accept_correctness": {
+    "problem": "Unclosed resource",
+    "source_reviewer": "correctness_logic",
+    "problem_present": true,
+    "role_match": true,
+    "reason": "Mock fixture: Resource opened without try-with-resources or close() cleanup.",
+    "evidence": "FileInputStream fis = new FileInputStream(file);"
+  },
+  "test_accept_maintainability": {
+    "problem": "Redundant boolean comparison",
+    "source_reviewer": "maintainability",
+    "problem_present": true,
+    "role_match": true,
+    "reason": "Mock fixture: Expression explicitly compares against true/false literal.",
+    "evidence": "if (isValid == true)"
+  },
+  "test_reject_role_leakage": {
+    "problem": "Hardcoded password",
+    "source_reviewer": "correctness_logic",
+    "problem_present": true,
+    "role_match": false,
+    "reason": "Mock fixture: Security problem reported under correctness_logic reviewer role (role mismatch).",
+    "evidence": "String pwd = \"admin123\";"
+  },
+  "test_reject_false_positive": {
+    "problem": "Potential null dereference on guarded call",
+    "source_reviewer": "correctness_logic",
+    "problem_present": false,
+    "role_match": true,
+    "reason": "Mock fixture: Code already performs safe null checking before method invocation.",
+    "evidence": "if (obj != null) { obj.trim(); }"
+  }
+}

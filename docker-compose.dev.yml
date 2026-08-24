@@ -1,0 +1,23 @@
+# ==============================================================================
+# PR Review Agent - Local Development / CI Compose (No GPU, Mock Backend)
+# Run without NVIDIA GPU or Hugging Face model download:
+#   docker compose -f docker-compose.dev.yml up -d --build
+# ==============================================================================
+
+services:
+  pr-review-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pr-review-agent-dev
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PR_REVIEW_MODEL=mock-verifier
+      - PR_REVIEW_BACKEND=mock
+      - PR_REVIEW_DEVICE=cpu
+      - PR_REVIEW_QUANTIZATION=none
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET:-}
+      - GITHUB_ALLOWED_REPOS=${GITHUB_ALLOWED_REPOS:-}
