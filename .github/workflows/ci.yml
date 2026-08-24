@@ -75,3 +75,11 @@ jobs:
         run: |
           python evaluation/benchmark_v2/validate_benchmark.py
           python evaluation/benchmark_v2/ci_audit_runner.py
+
+      - name: Step 8 - Fix Agent V1 Evaluation Harness Validation, Audit & Smoke
+        run: |
+          python evaluation/fix_agent_v1/validate_fix_eval.py
+          python evaluation/fix_agent_v1/audit_fix_eval.py
+          python evaluation/fix_agent_v1/test_fix_eval_framework.py
+          python evaluation/fix_agent_v1/run_fix_eval.py --split DEV --backend mock --output evaluation/fix_agent_v1/results/mock_dev_ci.json
+          python evaluation/fix_agent_v1/evaluate_fix_results.py evaluation/fix_agent_v1/results/mock_dev_ci.json

@@ -1,0 +1,42 @@
+{
+  "DEV": [
+    "FA-001",
+    "FA-002",
+    "FA-003",
+    "FA-004",
+    "FA-005",
+    "FA-006",
+    "FA-007",
+    "FA-008",
+    "FA-009",
+    "FA-010",
+    "FA-011",
+    "FA-012",
+    "FA-013",
+    "FA-014",
+    "FA-015",
+    "FA-016",
+    "FA-017",
+    "FA-018",
+    "FA-019",
+    "FA-020",
+    "FA-021",
+    "FA-022"
+  ],
+  "HOLDOUT": [
+    "FA-023",
+    "FA-024",
+    "FA-025",
+    "FA-026",
+    "FA-027",
+    "FA-028",
+    "FA-029",
+    "FA-030"
+  ],
+  "metadata": {
+    "total_scenarios": 30,
+    "dev_count": 22,
+    "holdout_count": 8,
+    "policy": "HOLDOUT is strictly reserved for final evaluation. Do NOT tune prompts or eligibility rules on HOLDOUT."
+  }
+}

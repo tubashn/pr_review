@@ -317,3 +317,63 @@ Fix Agent varsayılan olarak **KAPALIDIR** (`PR_REVIEW_FIX_AGENT_ENABLED=false`)
 * **CLI**: `python run_pr_review.py --repo <path> --branch <branch> --suggest-fixes`
 * **API**: `POST /review` body'sinde `"suggest_fixes": true`
 * **GitHub Summary Comment**: Fix Agent aktif olduğunda geçerli öneriler `### 💡 Suggested Fixes` başlığı altında diff bloğu olarak özet yoruma eklenir.
+
+---
+
+## Fix Agent Evaluation Harness (`evaluation/fix_agent_v1/`)
+
+Fix Agent V1'in patch güvenliğini, uygulama başarısını ve beklenen kod durumuna uygunluğunu (ground-truth match) ölçmek için bağımsız, sentetik ve deterministik bir değerlendirme altyapısıdır.
+
+### 1. Değerlendirme Pipeline'ı
+```
+Synthetic Verified Finding
+  │
+  ├── [1] Fix Agent V1 (fix_agent.py)
+  ├── [2] Unified Diff Generation
+  ├── [3] Patch Safety Validation (patch_validator.py)
+  ├── [4] In-Memory Temporary Apply (apply_unified_diff_to_text)
+  ├── [5] Expected Source Comparison (Normalized Whitespace)
+  └── [6] Metrics & Failure Taxonomy Aggregation
+```
+
+### 2. Neyi Ölçer ve Neyi Ölçmez?
+* **Neyi Ölçer?**:
+  - **Patch Güvenliği**: Sadece hedeflenen dosyanın değişmesi, path traversal engellenmesi, <= 20 satır sınırı.
+  - **Uygulanabilirlik**: Üretilen patch'in kaynak koda hatasız uygulanabilmesi.
+  - **Ground-Truth Doğruluğu**: Uygulanan kodun `expected_after.java` ile tam eşleşmesi.
+  - **Minimallik / Over-edit**: Gerekli satırlar dışında fazladan kod değiştirilip değiştirilmediği.
+  - **Güvenli Skip Oranı**: Güvenlik ve eksik kod gibi kapsam dışı senaryoların güvenle atlanması.
+* **Neyi Ölçmez?**:
+  - Tam proje Maven/Gradle derleme süreci (javac/classpath).
+  - Maven unit/entegrasyon test regresyonları.
+  - Runtime uygulama davranış garantisi.
+  *(Bu kontroller ilerideki sandbox/build-and-test aşamalarında ele alınacaktır.)*
+
+### 3. Dataset İstatistikleri ve HOLDOUT İzolasyonu
+* **Toplam Senaryo**: 30 sentetik Java senaryosu
+* **DEV Split**: 22 senaryo (15 Eligible, 7 Ineligible)
+* **HOLDOUT Split**: 8 senaryo (5 Eligible, 3 Ineligible)
+
+> 🔒 **HOLDOUT İzolasyon Kuralı**: `HOLDOUT` split'i yalnızca nihai one-shot değerlendirme içindir. Prompt düzenlemeleri, eligibility kural tuning'i veya mock kuralları için **asla kullanılmamalıdır**.
+
+### 4. Çalıştırma Komutları
+```bash
+# 1. Dataset Doğrulama ve Audit
+python evaluation/fix_agent_v1/validate_fix_eval.py
+python evaluation/fix_agent_v1/audit_fix_eval.py
+python evaluation/fix_agent_v1/test_fix_eval_framework.py
+
+# 2. Mock DEV Evaluation (Hızlı / GPU-Free)
+python evaluation/fix_agent_v1/run_fix_eval.py --split DEV --backend mock
+python evaluation/fix_agent_v1/evaluate_fix_results.py evaluation/fix_agent_v1/results/mock_dev.json
+
+# 3. Real Model Evaluation on GPU (Tesla T4 / Colab / Linux GPU)
+python evaluation/fix_agent_v1/run_fix_eval.py \
+  --split DEV \
+  --backend transformers \
+  --model Qwen/Qwen2.5-Coder-7B-Instruct \
+  --quantization 4bit \
+  --output evaluation/fix_agent_v1/results/qwen7b_dev.json
+
+python evaluation/fix_agent_v1/evaluate_fix_results.py evaluation/fix_agent_v1/results/qwen7b_dev.json
+```

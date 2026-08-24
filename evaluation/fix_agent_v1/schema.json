@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FixAgentEvaluationSchema",
+  "type": "object",
+  "properties": {
+    "scenario_id": {
+      "type": "string"
+    },
+    "split": {
+      "type": "string",
+      "enum": [
+        "DEV",
+        "HOLDOUT"
+      ]
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "correctness_logic",
+        "maintainability",
+        "security_validation"
+      ]
+    },
+    "finding_type": {
+      "type": "string"
+    },
+    "eligibility_expected": {
+      "type": "boolean"
+    },
+    "expected_fix_status": {
+      "type": "string",
+      "enum": [
+        "generated",
+        "skipped"
+      ]
+    },
+    "expected_skip_reason_category": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "file_path": {
+      "type": "string"
+    },
+    "line": {
+      "type": "integer"
+    },
+    "problem": {
+      "type": "string"
+    },
+    "evidence": {
+      "type": "string"
+    },
+    "source_fixture": {
+      "type": "string"
+    },
+    "expected_after_fixture": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": [
+        "EASY",
+        "MEDIUM",
+        "HARD"
+      ]
+    }
+  },
+  "required": [
+    "scenario_id",
+    "split",
+    "role",
+    "finding_type",
+    "eligibility_expected",
+    "expected_fix_status",
+    "file_path",
+    "line",
+    "problem",
+    "source_fixture",
+    "difficulty"
+  ]
+}

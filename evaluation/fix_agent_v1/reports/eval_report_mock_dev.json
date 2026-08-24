@@ -1,0 +1,57 @@
+{
+  "summary": {
+    "total_scenarios": 22,
+    "eligible_count": 15,
+    "ineligible_count": 7,
+    "eligibility_accuracy": 0.8636,
+    "generation_rate": 0.6667,
+    "safe_skip_rate": 1.0,
+    "unified_diff_valid_rate": 1.0,
+    "path_safety_rate": 1.0,
+    "size_safety_rate": 1.0,
+    "apply_success_rate": 1.0,
+    "ground_truth_match_rate": 0.0,
+    "strict_overall_success_rate": 0.0,
+    "average_extra_changed_lines": 0.0
+  },
+  "taxonomy": {
+    "wrong_fix": 10,
+    "eligibility_false_skip": 3,
+    "malformed_diff": 2,
+    "success": 7
+  },
+  "category_breakdown": {
+    "maintainability": {
+      "total": 10,
+      "success": 2,
+      "gt_match": 0
+    },
+    "correctness_logic": {
+      "total": 10,
+      "success": 3,
+      "gt_match": 0
+    },
+    "security_validation": {
+      "total": 2,
+      "success": 2,
+      "gt_match": 0
+    }
+  },
+  "difficulty_breakdown": {
+    "EASY": {
+      "total": 11,
+      "success": 4,
+      "gt_match": 0
+    },
+    "MEDIUM": {
+      "total": 8,
+      "success": 2,
+      "gt_match": 0
+    },
+    "HARD": {
+      "total": 3,
+      "success": 1,
+      "gt_match": 0
+    }
+  }
+}
