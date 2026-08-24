@@ -528,12 +528,14 @@ Verify this candidate and output the JSON verdict."""
         """
         Executes hierarchical verification pipeline:
         Deterministic AST/Absence checks -> Semantic LLM Verifier.
+        Model backend is lazily loaded ONLY if at least one candidate reaches Tier 4.
         """
+        if not candidates:
+            return [], []
+
         print(f"[4/6] Verifying {len(candidates)} candidate findings through hierarchical pipeline...")
         verified_findings = []
         rejected_findings = []
-
-        self.initialize_verifier_backend()
 
         for cand in candidates:
             cid = cand["candidate_id"]
@@ -566,7 +568,8 @@ Verify this candidate and output the JSON verdict."""
                     })
                     continue
 
-            # Tier 4: Semantic Verifier
+            # Tier 4: Semantic Verifier (Lazy-load model here on first required semantic inference)
+            self.initialize_verifier_backend()
             verdict = self.run_semantic_inference(cand, formatted_diff)
             is_pe = verdict.get("parse_error", False)
             prob_present = verdict.get("problem_present", False)

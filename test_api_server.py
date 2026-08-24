@@ -104,6 +104,36 @@ class TestPRReviewAPIServer(unittest.TestCase):
         health_resp_after = self.client.get("/health")
         self.assertFalse(health_resp_after.json()["model_loaded"])
 
+    def test_lazy_loading_clean_pr_does_not_initialize_model(self):
+        # Ensure MODEL_CACHE is empty before review
+        MODEL_CACHE.clear()
+        
+        current_repo = str(Path(__file__).resolve().parent)
+        payload = {
+            "repo": current_repo,
+            "branch": "main",
+            "base": "main",
+            "dry_run": False # Not dry-run, but backend will only load if candidates reach Tier 4
+        }
+
+        # Mock out the heavy transformers loader to track if it is ever called
+        from unittest.mock import patch
+        with patch("run_pr_review.PRReviewRunner.initialize_verifier_backend") as mock_init:
+            response = self.client.post("/review", json=payload)
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertEqual(data["candidate_count"], 0)
+            self.assertEqual(data["verified_findings_count"], 0)
+            
+            # verify initialize_verifier_backend was NEVER called
+            mock_init.assert_not_called()
+
+        # Check that MODEL_CACHE remains empty and health endpoint shows model_loaded: False
+        self.assertEqual(len(MODEL_CACHE), 0)
+        health_resp = self.client.get("/health")
+        self.assertEqual(health_resp.status_code, 200)
+        self.assertFalse(health_resp.json()["model_loaded"])
+
 
 if __name__ == "__main__":
     unittest.main()
