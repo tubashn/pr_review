@@ -6,18 +6,35 @@ Exposes REST endpoints for PR code review orchestration with:
 - Strict Git repository validation & error handling
 - Environment-based configuration
 - Full OpenAPI / Swagger documentation
+- Secure GitHub Webhook Ingestion (/webhook/github) with HMAC SHA-256 verification,
+  repo allowlist, PR+SHA idempotency store, and non-blocking background execution.
 """
 
 import asyncio
+import hashlib
+import hmac
+import json
+import logging
 import os
+import shutil
 import subprocess
+import tempfile
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, Header, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from run_pr_review import run_review
+from webhook_idempotency import WebhookIdempotencyStore
+
+# Configure Structured Logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] [%(name)s] %(message)s"
+)
+logger = logging.getLogger("pr_review_api")
 
 # Environment Configuration Defaults
 DEFAULT_MODEL = os.getenv("PR_REVIEW_MODEL", "Qwen/Qwen2.5-Coder-7B-Instruct")
@@ -27,10 +44,15 @@ DEFAULT_DEVICE = os.getenv("PR_REVIEW_DEVICE", "auto")
 DEFAULT_API_BASE = os.getenv("PR_REVIEW_API_BASE", None)
 DEFAULT_API_KEY = os.getenv("PR_REVIEW_API_KEY", None)
 
+# Webhook Configuration
+GITHUB_WEBHOOK_SECRET = os.getenv("GITHUB_WEBHOOK_SECRET", None)
+GITHUB_ALLOWED_REPOS = os.getenv("GITHUB_ALLOWED_REPOS", None)
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", None)
+
 app = FastAPI(
     title="PR Review Agent API",
-    description="End-to-End AI Pull Request Review Service using static analysis, AST verification, and LLM reasoning.",
-    version="1.0.0"
+    description="End-to-End AI Pull Request Review Service using static analysis, AST verification, LLM reasoning, and GitHub Webhooks.",
+    version="1.1.0"
 )
 
 # Enable CORS for flexible integration
@@ -42,9 +64,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global Model Cache & GPU Concurrency Lock
+# Global Model Cache, GPU Concurrency Lock, and Idempotency Store
 MODEL_CACHE: Dict[str, Any] = {}
 INFERENCE_LOCK = asyncio.Lock()
+IDEMPOTENCY_STORE = WebhookIdempotencyStore()
 
 
 # Pydantic Request & Response Models
@@ -55,6 +78,7 @@ class HealthResponse(BaseModel):
     backend: str = Field(..., description="Inference backend engine")
     quantization: str = Field(..., description="Model quantization mode")
     model_loaded: bool = Field(..., description="Whether model is currently loaded in memory")
+    webhook_enabled: bool = Field(True, description="Whether GitHub webhook endpoint is active")
 
 
 class ReviewRequest(BaseModel):
@@ -97,8 +121,20 @@ class ReviewResponse(BaseModel):
     status: Optional[str] = None
 
 
+class WebhookStatusResponse(BaseModel):
+    review_key: str
+    status: str
+    repository: str
+    pr_number: int
+    head_sha: str
+    created_at: float
+    updated_at: float
+    error: Optional[str] = None
+    summary: Optional[Dict[str, Any]] = None
+
+
 def validate_git_repository(repo_path_str: str, branch: str, base: str) -> Path:
-    """Validates that the path is a valid Git repository and check branch validity."""
+    """Validates that the path is a valid Git repository and checks branch validity."""
     repo_path = Path(repo_path_str).resolve()
     if not repo_path.exists() or not repo_path.is_dir():
         raise HTTPException(
@@ -140,24 +176,166 @@ def validate_git_repository(repo_path_str: str, branch: str, base: str) -> Path:
     return repo_path
 
 
+def verify_github_signature(raw_body: bytes, signature_header: Optional[str]) -> None:
+    """
+    Validates GitHub X-Hub-Signature-256 header using constant-time comparison.
+    Raises HTTPException(401) on missing/invalid signature when secret is configured.
+    """
+    secret = os.getenv("GITHUB_WEBHOOK_SECRET", GITHUB_WEBHOOK_SECRET)
+    if not secret:
+        logger.warning("GITHUB_WEBHOOK_SECRET is not configured. Skipping HMAC signature validation (Development Mode).")
+        return
+
+    if not signature_header:
+        logger.warning("Webhook request missing X-Hub-Signature-256 header when secret is configured.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing X-Hub-Signature-256 header"
+        )
+
+    if not signature_header.startswith("sha256="):
+        logger.warning("Invalid X-Hub-Signature-256 format.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid signature format"
+        )
+
+    expected_sig = signature_header[7:].strip()
+    mac = hmac.new(secret.encode("utf-8"), msg=raw_body, digestmod=hashlib.sha256)
+    computed_sig = mac.hexdigest()
+
+    if not hmac.compare_digest(computed_sig, expected_sig):
+        logger.warning("Invalid webhook signature: computed HMAC does not match provided X-Hub-Signature-256.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid webhook signature"
+        )
+
+
+def validate_repo_allowlist(repo_full_name: str) -> None:
+    """
+    Checks if repository is allowed via GITHUB_ALLOWED_REPOS.
+    Raises HTTPException(403) if repository is not in allowlist.
+    """
+    allowlist_env = os.getenv("GITHUB_ALLOWED_REPOS", GITHUB_ALLOWED_REPOS)
+    if not allowlist_env or not allowlist_env.strip():
+        logger.warning("GITHUB_ALLOWED_REPOS is not set. All repositories allowed (Development Mode).")
+        return
+
+    allowed = [r.strip().lower() for r in allowlist_env.split(",") if r.strip()]
+    if repo_full_name.strip().lower() not in allowed:
+        logger.warning(f"Repository rejected: '{repo_full_name}' is not in GITHUB_ALLOWED_REPOS allowlist.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Repository '{repo_full_name}' is not authorized for review."
+        )
+
+
+async def execute_webhook_background_review(
+    review_key: str,
+    repo_full_name: str,
+    pr_number: int,
+    head_sha: str,
+    base_ref: str,
+    head_ref: str,
+    clone_url: str
+):
+    """
+    Background worker for executing PR review for a webhook event:
+    1. Acquires INFERENCE_LOCK (GPU Concurrency Protection)
+    2. Performs secure clone/fetch in isolated temporary directory
+    3. Runs standard run_review(...) pipeline
+    4. Updates IDEMPOTENCY_STORE status
+    """
+    logger.info(f"Review started for {review_key} (PR #{pr_number}, SHA: {head_sha[:8]})")
+    temp_dir = tempfile.mkdtemp(prefix="pr_review_git_")
+    temp_repo_path = Path(temp_dir).resolve()
+
+    try:
+        # Prepare authenticated or public clone URL
+        token = os.getenv("GITHUB_TOKEN", GITHUB_TOKEN)
+        authenticated_url = clone_url
+        if token:
+            authenticated_url = clone_url.replace("https://", f"https://x-access-token:{token}@")
+
+        # Step 1: Initialize temporary git repo
+        subprocess.run(["git", "init"], cwd=str(temp_repo_path), check=True, capture_output=True)
+        subprocess.run(["git", "remote", "add", "origin", authenticated_url], cwd=str(temp_repo_path), check=True, capture_output=True)
+
+        # Step 2: Fetch base ref and PR head ref
+        subprocess.run(
+            ["git", "fetch", "--depth=50", "origin", f"+refs/heads/{base_ref}:refs/remotes/origin/{base_ref}"],
+            cwd=str(temp_repo_path),
+            check=True,
+            capture_output=True
+        )
+        subprocess.run(
+            ["git", "fetch", "--depth=50", "origin", f"+refs/pull/{pr_number}/head:refs/remotes/origin/{head_ref}"],
+            cwd=str(temp_repo_path),
+            check=True,
+            capture_output=True
+        )
+
+        # Step 3: Run review within inference lock and threadpool
+        async with INFERENCE_LOCK:
+            loop = asyncio.get_running_loop()
+            report = await loop.run_in_executor(
+                None,
+                lambda: run_review(
+                    repo=str(temp_repo_path),
+                    branch=head_ref,
+                    base=base_ref,
+                    model_id=os.getenv("PR_REVIEW_MODEL", DEFAULT_MODEL),
+                    backend=os.getenv("PR_REVIEW_BACKEND", DEFAULT_BACKEND),
+                    quantization=os.getenv("PR_REVIEW_QUANTIZATION", DEFAULT_QUANTIZATION),
+                    device=os.getenv("PR_REVIEW_DEVICE", DEFAULT_DEVICE),
+                    api_base=os.getenv("PR_REVIEW_API_BASE", DEFAULT_API_BASE),
+                    api_key=os.getenv("PR_REVIEW_API_KEY", DEFAULT_API_KEY),
+                    pmd=False,
+                    dry_run=False,
+                    model_cache=MODEL_CACHE
+                )
+            )
+
+        # Step 4: Mark review completed in idempotency store
+        summary = {
+            "changed_files_count": report.get("changed_files_count", 0),
+            "candidate_count": report.get("candidate_count", 0),
+            "verified_findings_count": report.get("verified_findings_count", 0),
+            "rejected_findings_count": report.get("rejected_findings_count", 0),
+            "status": report.get("status", "COMPLETED")
+        }
+        IDEMPOTENCY_STORE.mark_completed(review_key, summary=summary)
+        logger.info(f"Review completed successfully for {review_key}: {summary}")
+
+    except Exception as e:
+        err_msg = f"Review failed for {review_key}: {str(e)}"
+        logger.error(err_msg, exc_info=False)
+        IDEMPOTENCY_STORE.mark_failed(review_key, error_message=str(e))
+    finally:
+        # Safe cleanup of temporary clone directory
+        shutil.rmtree(temp_repo_path, ignore_errors=True)
+
+
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 async def health_check():
-    """Returns service health and model loading status."""
+    """Returns service health, webhook status, and model loading status."""
     is_loaded = "model" in MODEL_CACHE and MODEL_CACHE["model"] is not None
     return HealthResponse(
         status="ok",
         service="pr-review-agent",
-        model=DEFAULT_MODEL,
-        backend=DEFAULT_BACKEND,
-        quantization=DEFAULT_QUANTIZATION,
-        model_loaded=is_loaded
+        model=os.getenv("PR_REVIEW_MODEL", DEFAULT_MODEL),
+        backend=os.getenv("PR_REVIEW_BACKEND", DEFAULT_BACKEND),
+        quantization=os.getenv("PR_REVIEW_QUANTIZATION", DEFAULT_QUANTIZATION),
+        model_loaded=is_loaded,
+        webhook_enabled=True
     )
 
 
 @app.post("/review", response_model=ReviewResponse, tags=["Review"])
 async def review_pull_request(request: ReviewRequest):
     """
-    Executes an end-to-end pull request review on the target Git repository and branch.
+    Executes an end-to-end pull request review on a local Git repository and branch.
     Uses temporary worktree isolation and cached verifier model.
     """
     repo_path = validate_git_repository(request.repo, request.branch, request.base)
@@ -165,7 +343,6 @@ async def review_pull_request(request: ReviewRequest):
     # Execute review with concurrency protection for model inference
     async with INFERENCE_LOCK:
         try:
-            # Run orchestration in threadpool to prevent blocking the event loop
             loop = asyncio.get_running_loop()
             report = await loop.run_in_executor(
                 None,
@@ -173,12 +350,12 @@ async def review_pull_request(request: ReviewRequest):
                     repo=str(repo_path),
                     branch=request.branch,
                     base=request.base,
-                    model_id=DEFAULT_MODEL,
-                    backend=DEFAULT_BACKEND,
-                    quantization=DEFAULT_QUANTIZATION,
-                    device=DEFAULT_DEVICE,
-                    api_base=DEFAULT_API_BASE,
-                    api_key=DEFAULT_API_KEY,
+                    model_id=os.getenv("PR_REVIEW_MODEL", DEFAULT_MODEL),
+                    backend=os.getenv("PR_REVIEW_BACKEND", DEFAULT_BACKEND),
+                    quantization=os.getenv("PR_REVIEW_QUANTIZATION", DEFAULT_QUANTIZATION),
+                    device=os.getenv("PR_REVIEW_DEVICE", DEFAULT_DEVICE),
+                    api_base=os.getenv("PR_REVIEW_API_BASE", DEFAULT_API_BASE),
+                    api_key=os.getenv("PR_REVIEW_API_KEY", DEFAULT_API_KEY),
                     pmd=request.pmd,
                     dry_run=request.dry_run,
                     model_cache=MODEL_CACHE
@@ -191,6 +368,123 @@ async def review_pull_request(request: ReviewRequest):
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
         except Exception as e:
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Unexpected review error: {str(e)}")
+
+
+@app.post("/webhook/github", tags=["Webhook"])
+async def handle_github_webhook(
+    request: Request,
+    x_github_event: Optional[str] = Header(None, alias="X-GitHub-Event"),
+    x_hub_signature_256: Optional[str] = Header(None, alias="X-Hub-Signature-256")
+):
+    """
+    Ingests GitHub Pull Request webhooks with HMAC SHA-256 authentication,
+    repository allowlisting, idempotency check, and non-blocking background review.
+    """
+    logger.info("Webhook received from GitHub.")
+    raw_body = await request.body()
+
+    # 1. HMAC Signature Verification
+    verify_github_signature(raw_body, x_hub_signature_256)
+
+    # 2. Filter Event Type
+    if x_github_event != "pull_request":
+        logger.info(f"Ignored non-pull_request GitHub event: '{x_github_event}'")
+        return {"status": "ignored", "reason": f"Unsupported event type: '{x_github_event}'"}
+
+    # 3. Parse JSON Body
+    try:
+        payload = json.loads(raw_body.decode("utf-8"))
+    except Exception as e:
+        logger.warning(f"Webhook payload JSON decode failed: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON payload")
+
+    # 4. Validate Action
+    action = payload.get("action")
+    supported_actions = ("opened", "reopened", "synchronize")
+    if action not in supported_actions:
+        logger.info(f"Ignored unsupported pull_request action: '{action}'")
+        return {"status": "ignored", "reason": f"Unsupported action: '{action}'"}
+
+    # 5. Extract & Validate Required Payload Fields
+    try:
+        repo_data = payload["repository"]
+        repo_full_name = repo_data["full_name"]
+        clone_url = repo_data.get("clone_url") or f"https://github.com/{repo_full_name}.git"
+
+        pr_data = payload["pull_request"]
+        pr_number = pr_data["number"]
+        head_sha = pr_data["head"]["sha"]
+        base_ref = pr_data["base"]["ref"]
+        head_ref = pr_data["head"]["ref"]
+        html_url = pr_data.get("html_url", "")
+    except (KeyError, TypeError) as e:
+        logger.warning(f"Missing required webhook payload fields: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Missing required field: {e}")
+
+    # 6. Check Repository Allowlist
+    validate_repo_allowlist(repo_full_name)
+
+    # 7. Idempotency Check
+    should_proceed, review_key, current_status = IDEMPOTENCY_STORE.acquire_review(
+        repo_full_name=repo_full_name,
+        pr_number=pr_number,
+        head_sha=head_sha
+    )
+
+    if not should_proceed:
+        logger.info(f"Duplicate delivery/review ignored for {review_key} (current status: {current_status})")
+        return {
+            "status": "duplicate",
+            "review_key": review_key,
+            "current_status": current_status,
+            "message": "Review is already processing or completed for this PR commit."
+        }
+
+    # 8. Trigger Non-blocking Background Review Execution
+    asyncio.create_task(
+        execute_webhook_background_review(
+            review_key=review_key,
+            repo_full_name=repo_full_name,
+            pr_number=pr_number,
+            head_sha=head_sha,
+            base_ref=base_ref,
+            head_ref=head_ref,
+            clone_url=clone_url
+        )
+    )
+
+    # 9. Immediate 202 Accepted Response
+    return Response(
+        content=json.dumps({
+            "status": "accepted",
+            "review_key": review_key,
+            "action": action,
+            "repository": repo_full_name,
+            "pr_number": pr_number,
+            "head_sha": head_sha,
+            "message": "Review scheduled for background execution."
+        }),
+        status_code=status.HTTP_202_ACCEPTED,
+        media_type="application/json"
+    )
+
+
+@app.get("/webhook/status", response_model=WebhookStatusResponse, tags=["Webhook"])
+@app.get("/webhook/reviews/{review_key:path}", response_model=WebhookStatusResponse, tags=["Webhook"])
+async def get_webhook_review_status(review_key: Optional[str] = None):
+    """Returns the review execution status and report summary for a given review key."""
+    if not review_key:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="review_key parameter is required."
+        )
+    status_data = IDEMPOTENCY_STORE.get_status(review_key)
+    if not status_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Review key '{review_key}' not found."
+        )
+    return status_data
 
 
 if __name__ == "__main__":

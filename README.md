@@ -115,3 +115,35 @@ $body = @{
 
 Invoke-RestMethod -Uri "http://localhost:8000/review" -Method Post -Body $body -ContentType "application/json"
 ```
+
+---
+
+## GitHub Webhook Ingestion (`/webhook/github`)
+
+PR Review Agent, GitHub Pull Request eventlerini kabul ederek otomatik kod incelemesi başlatabilen güvenli bir webhook altyapısına sahiptir.
+
+### 1. Environment Değişkenleri
+* `GITHUB_WEBHOOK_SECRET`: GitHub Webhook HMAC SHA-256 secret anahtarı. Tanımlıysa gelen isteklerin `X-Hub-Signature-256` imzası doğrulanır.
+* `GITHUB_ALLOWED_REPOS`: Virgülle ayrılmış izinli repo listesi (Örn: `owner/repo1,owner/repo2`). Tanımlıysa liste dışındaki istekler 403 Forbidden ile reddedilir.
+* `GITHUB_TOKEN`: Private repository'ler için git fetch/clone erişim token'ı.
+
+### 2. Webhook Akışı
+```
+GitHub PR Event (opened / reopened / synchronize)
+  │
+  ├── [1] POST /webhook/github
+  ├── [2] HMAC SHA-256 Signature Verification (Constant-time comparison)
+  ├── [3] Action & Event Filtering (pull_request: opened, reopened, synchronize)
+  ├── [4] Repository Allowlist Enforcement (GITHUB_ALLOWED_REPOS)
+  ├── [5] Idempotency Check (<repo>#<pr>@<head_sha>)
+  │         ├── Processing / Completed -> 200 OK (Duplicate, skipped)
+  │         └── New / Failed -> 202 Accepted (Background review scheduled)
+  └── [6] Background Execution (Isolated temporary clone + run_review pipeline)
+```
+
+> **Not:** Bu aşamada GitHub PR üzerine otomatik comment/review publish etme henüz eklenmemiştir. Webhook inceleme sonucu in-memory store'a kaydedilir.
+
+### 3. Review Durumu Sorgulama
+* **Endpoint**: `GET /webhook/reviews/{review_key}` veya `GET /webhook/status?review_key=<key>`
+* **Örnek Key**: `owner/repo#42@a1b2c3d4e5f6...`
+* **Dönen Bilgiler**: `status` (processing, completed, failed), `candidate_count`, `verified_findings_count`, `rejected_findings_count`.
