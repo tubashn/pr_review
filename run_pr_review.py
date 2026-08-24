@@ -137,7 +137,8 @@ class PRReviewRunner:
         dry_run: bool = False,
         loaded_model: Any = None,
         tokenizer: Any = None,
-        model_cache: Optional[Dict[str, Any]] = None
+        model_cache: Optional[Dict[str, Any]] = None,
+        suggest_fixes: bool = False
     ):
         self.repo_path = repo_path.resolve()
         self.branch = branch
@@ -150,6 +151,7 @@ class PRReviewRunner:
         self.api_key = api_key
         self.run_pmd = run_pmd
         self.dry_run = dry_run
+        self.suggest_fixes = suggest_fixes or (os.getenv("PR_REVIEW_FIX_AGENT_ENABLED", "false").lower() in ("true", "1", "yes"))
 
         self.temp_worktree_path: Optional[Path] = None
         self.loaded_model = loaded_model
@@ -641,6 +643,33 @@ Verify this candidate and output the JSON verdict."""
             verified, rejected = self.verify_candidates(candidates, formatted_diff)
             final_verified = self.deduplicate_findings(verified)
 
+            # Fix Agent V1: Conservative patch suggestion generation
+            fix_suggestions = []
+            if self.suggest_fixes and final_verified:
+                from fix_agent import generate_fix_suggestions
+                from fix_eligibility import check_fix_eligibility
+
+                has_eligible = any(
+                    check_fix_eligibility(f, file_content=None)["eligible"]
+                    for f in final_verified
+                )
+
+                if has_eligible and self.backend in ("transformers", "hf"):
+                    self.initialize_verifier_backend()
+
+                print(f"[Fix Agent] Processing {len(final_verified)} verified finding(s) for patch suggestions...")
+                fix_suggestions = generate_fix_suggestions(
+                    verified_findings=final_verified,
+                    worktree_path=wt_path,
+                    backend=self.backend,
+                    loaded_model=self.loaded_model,
+                    tokenizer=self.tokenizer,
+                    api_base=self.api_base,
+                    api_key=self.api_key,
+                    model_id=self.model_id,
+                    dry_run=self.dry_run
+                )
+
             elapsed = round(time.time() - start_time, 2)
             print("[6/6] Compiling final review report...")
             print("==================================================")
@@ -650,6 +679,9 @@ Verify this candidate and output the JSON verdict."""
             print(f"Candidate Findings   : {len(candidates)}")
             print(f"Verified (Accepted)  : {len(final_verified)}")
             print(f"Rejected (Filtered)  : {len(rejected)}")
+            if self.suggest_fixes:
+                gen_count = len([f for f in fix_suggestions if f.get("fix_status") == "generated"])
+                print(f"Fix Suggestions      : {gen_count} generated / {len(fix_suggestions)} evaluated")
             print(f"Total Execution Time : {elapsed}s")
             print("==================================================")
 
@@ -671,7 +703,8 @@ Verify this candidate and output the JSON verdict."""
                 "verified_findings_count": len(final_verified),
                 "rejected_findings_count": len(rejected),
                 "verified_findings": final_verified,
-                "rejected_findings": rejected
+                "rejected_findings": rejected,
+                "fix_suggestions": fix_suggestions
             }
 
             if output_path:
@@ -700,7 +733,8 @@ def run_review(
     loaded_model: Any = None,
     tokenizer: Any = None,
     model_cache: Optional[Dict[str, Any]] = None,
-    output_path: Optional[Path] = None
+    output_path: Optional[Path] = None,
+    suggest_fixes: bool = False
 ) -> Dict[str, Any]:
     """
     Reusable orchestration function for both CLI and FastAPI server.
@@ -719,7 +753,8 @@ def run_review(
         dry_run=dry_run,
         loaded_model=loaded_model,
         tokenizer=tokenizer,
-        model_cache=model_cache
+        model_cache=model_cache,
+        suggest_fixes=suggest_fixes
     )
     return runner.run(output_path=output_path)
 
@@ -737,6 +772,7 @@ def main():
     parser.add_argument("--api-key", type=str, default=None, help="API key")
     parser.add_argument("--pmd", action="store_true", help="Enable static PMD analysis")
     parser.add_argument("--dry-run", action="store_true", help="Run in mock/dry-run mode without downloading models")
+    parser.add_argument("--suggest-fixes", action="store_true", help="Generate automated patch suggestions for eligible findings")
     parser.add_argument("--output", type=str, default="pr_review_report.json", help="Output report JSON path")
 
     args = parser.parse_args()
@@ -752,7 +788,8 @@ def main():
         api_base=args.api_base,
         api_key=args.api_key,
         run_pmd=args.pmd,
-        dry_run=args.dry_run
+        dry_run=args.dry_run,
+        suggest_fixes=args.suggest_fixes
     )
 
     runner.run(output_path=Path(args.output))

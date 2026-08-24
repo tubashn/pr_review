@@ -12,12 +12,10 @@ Pull Request
 → Qwen Correctness / Security / Maintainability Reviewers
 + PMD
 → Candidate Findings
-→ AI Finding Verifier
+→ Hierarchical Finding Verifier (AST + Grounding Strategy + Qwen 7B)
 → Merge / Deduplicate
-→ Fix / Patch
-→ Build & Test
-→ Final Report
-→ Email
+→ Fix Agent V1 (Eligibility Gate -> Patch Generation -> Safety Validation)
+→ Final Report & GitHub Summary Comment
 ```
 
 ## Current Status
@@ -35,14 +33,18 @@ Pull Request
 * 48 scenarios / 144 samples
 * QLoRA pilot training
 * AI verifier prompt/benchmark/evaluator
-
-### In Progress
-* Base Qwen 7B verifier inference
+* Base Qwen 7B verifier inference & hierarchical verification
+* FastAPI REST API Server with singleton model caching
+* GitHub Webhook integration with HMAC SHA-256 and idempotency
+* GitHub Pull Request summary comment publishing
+* Docker containerization with GPU support and volume caching
+* Deterministic mock backend for local dev and CI
+* GitHub Actions CI pipeline
+* Fix Agent V1 (Conservative automated patch suggestions)
 
 ### Planned
-* fix/patch agent
 * Maven test regression verification in PR pipeline
-* automatic email delivery
+* Automatic email delivery
 
 ---
 
@@ -286,3 +288,32 @@ Projede `main` branch'ine yapılan her push ve pull request için otomatik GitHu
   7. Benchmark V2 veri seti ve semantik denetim testleri (`validate_benchmark.py`, `ci_audit_runner.py`)
 * **Gerçek LLM / GPU Doğrulamaları**: Model kalite ve doğruluk bake-off testleri CI pipeline'ı dışında, özel GPU ortamlarında (Colab / Linux GPU sunucusu) yürütülür.
 * **Docker Build Politikası**: Full CUDA Docker build süresi uzun olduğundan CI aşamasında `test_docker_setup.py` ile statik konfigürasyon denetlenir; üretim CUDA image build işlemi deployment aşamasında yapılır.
+
+---
+
+## Fix Agent V1 (Automated Patch Suggestions)
+
+PR Review Agent, verifier tarafından `ACCEPT` edilmiş belirli finding'ler için kullanıcıya manuel inceleme gerektiren, güvenli ve konservatif **unified diff patch önerileri** üretir.
+
+### 1. Güvenlik ve Kapsam Kuralları
+* **Asla Target Repo'yu Mutate Etmez**: `git apply`, branch write veya commit/push işlemleri yapmaz.
+* **Deterministic Eligibility Gate (`fix_eligibility.py`)**:
+  - Yalnızca verifier tarafından onaylanan (`decision == ACCEPT`) finding'leri işler.
+  - Sadece `correctness_logic` ve `maintainability` kategorilerini kabul eder.
+  - **Güvenlik finding'leri (`security_validation`) otomatik düzeltilmez** (`security_findings_not_auto_fixed`).
+  - **Absence/eksik kod finding'leri otomatik düzeltilmez** (`absence_type_not_auto_fixed`).
+  - Çoklu dosya (`multi_file_not_supported`) veya geçersiz dosya tipleri reddedilir.
+* **Deterministic Patch Safety Validator (`patch_validator.py`)**:
+  - Standart unified diff formatı (`--- a/...`, `+++ b/...`, `@@ ... @@`) zorunludur.
+  - Sadece finding'in ait olduğu tekil dosyayı değiştirebilir; path traversal (`..`) ve mutlak sistem yolları reddedilir.
+  - **Maksimum 20 Değişen Satır Limiti**: Eklenen + silinen kaynak satır sayısı 20'yi aşarsa patch `patch_too_large` olarak reddedilir.
+  - Dosya oluşturma, silme, yeniden adlandırma veya binary patch işlemleri engellenir.
+  - AST Sanity: Geçici uygulanan patch üzerinde parantez/süslü parantez dengesi ve Java token geçerliliği kontrol edilir.
+
+### 2. Kullanım & Konfigürasyon
+Fix Agent varsayılan olarak **KAPALIDIR** (`PR_REVIEW_FIX_AGENT_ENABLED=false`).
+
+* **Environment**: `PR_REVIEW_FIX_AGENT_ENABLED=true`
+* **CLI**: `python run_pr_review.py --repo <path> --branch <branch> --suggest-fixes`
+* **API**: `POST /review` body'sinde `"suggest_fixes": true`
+* **GitHub Summary Comment**: Fix Agent aktif olduğunda geçerli öneriler `### 💡 Suggested Fixes` başlığı altında diff bloğu olarak özet yoruma eklenir.

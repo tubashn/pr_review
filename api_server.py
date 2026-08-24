@@ -44,6 +44,7 @@ DEFAULT_QUANTIZATION = os.getenv("PR_REVIEW_QUANTIZATION", "4bit")
 DEFAULT_DEVICE = os.getenv("PR_REVIEW_DEVICE", "auto")
 DEFAULT_API_BASE = os.getenv("PR_REVIEW_API_BASE", None)
 DEFAULT_API_KEY = os.getenv("PR_REVIEW_API_KEY", None)
+DEFAULT_FIX_AGENT_ENABLED = os.getenv("PR_REVIEW_FIX_AGENT_ENABLED", "false").lower() in ("true", "1", "yes")
 
 # Webhook Configuration
 GITHUB_WEBHOOK_SECRET = os.getenv("GITHUB_WEBHOOK_SECRET", None)
@@ -90,6 +91,7 @@ class ReviewRequest(BaseModel):
     base: str = Field("main", description="Base branch to compare against (default: main)")
     pmd: bool = Field(False, description="Enable Maven PMD static analysis if available")
     dry_run: bool = Field(False, description="Run in mock/dry-run mode without GPU model inference")
+    suggest_fixes: Optional[bool] = Field(None, description="Enable automated patch suggestions for eligible findings (defaults to PR_REVIEW_FIX_AGENT_ENABLED)")
 
 
 class FindingDetail(BaseModel):
@@ -121,6 +123,7 @@ class ReviewResponse(BaseModel):
     rejected_findings_count: int
     verified_findings: List[Dict[str, Any]]
     rejected_findings: List[Dict[str, Any]]
+    fix_suggestions: Optional[List[Dict[str, Any]]] = Field(default_factory=list, description="Automated patch suggestions for eligible findings")
     status: Optional[str] = None
 
 
@@ -296,7 +299,8 @@ async def execute_webhook_background_review(
                     api_key=os.getenv("PR_REVIEW_API_KEY", DEFAULT_API_KEY),
                     pmd=False,
                     dry_run=False,
-                    model_cache=MODEL_CACHE
+                    model_cache=MODEL_CACHE,
+                    suggest_fixes=DEFAULT_FIX_AGENT_ENABLED
                 )
             )
 
@@ -310,7 +314,8 @@ async def execute_webhook_background_review(
                 pr_number=pr_number,
                 head_sha=head_sha,
                 verified_findings=report.get("verified_findings", []),
-                rejected_findings=report.get("rejected_findings", [])
+                rejected_findings=report.get("rejected_findings", []),
+                fix_suggestions=report.get("fix_suggestions", [])
             )
             comment_publish_status = publish_res.get("status", "unknown")
             logger.info(f"GitHub summary comment {comment_publish_status} for {review_key}")
@@ -375,6 +380,7 @@ async def review_pull_request(request: ReviewRequest):
     Uses temporary worktree isolation and cached verifier model.
     """
     repo_path = validate_git_repository(request.repo, request.branch, request.base)
+    effective_suggest_fixes = request.suggest_fixes if request.suggest_fixes is not None else DEFAULT_FIX_AGENT_ENABLED
 
     # Execute review with concurrency protection for model inference
     async with INFERENCE_LOCK:
@@ -394,7 +400,8 @@ async def review_pull_request(request: ReviewRequest):
                     api_key=os.getenv("PR_REVIEW_API_KEY", DEFAULT_API_KEY),
                     pmd=request.pmd,
                     dry_run=request.dry_run,
-                    model_cache=MODEL_CACHE
+                    model_cache=MODEL_CACHE,
+                    suggest_fixes=effective_suggest_fixes
                 )
             )
             return report

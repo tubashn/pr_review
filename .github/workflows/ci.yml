@@ -53,9 +53,10 @@ jobs:
           python test_pr_review_mvp.py
           python test_api_server.py
 
-      - name: Step 3 - Mock Development Backend Tests
+      - name: Step 3 - Mock Development Backend & Fix Agent Tests
         run: |
           python test_mock_backend.py
+          python test_fix_agent.py
 
       - name: Step 4 - GitHub Webhook & Comment Client Tests
         run: |
