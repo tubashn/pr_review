@@ -127,7 +127,7 @@ PR Review Agent, GitHub Pull Request eventlerini kabul ederek otomatik kod incel
 * `GITHUB_ALLOWED_REPOS`: Virgülle ayrılmış izinli repo listesi (Örn: `owner/repo1,owner/repo2`). Tanımlıysa liste dışındaki istekler 403 Forbidden ile reddedilir.
 * `GITHUB_TOKEN`: Private repository'ler için git fetch/clone erişim token'ı.
 
-### 2. Webhook Akışı
+### 2. Webhook ve Comment Publishing Akışı
 ```
 GitHub PR Event (opened / reopened / synchronize)
   │
@@ -138,12 +138,18 @@ GitHub PR Event (opened / reopened / synchronize)
   ├── [5] Idempotency Check (<repo>#<pr>@<head_sha>)
   │         ├── Processing / Completed -> 200 OK (Duplicate, skipped)
   │         └── New / Failed -> 202 Accepted (Background review scheduled)
-  └── [6] Background Execution (Isolated temporary clone + run_review pipeline)
+  │
+  ├── [6] Background Execution (Isolated temporary clone + run_review pipeline)
+  │
+  └── [7] GitHub Comment Publishing (Single Summary Bot Comment)
+            ├── Existing bot comment search (via <!-- pr-review-agent --> marker)
+            ├── Found -> PATCH /issues/comments/{comment_id} (Update existing)
+            └── Not found -> POST /issues/{pr}/comments (Create new)
 ```
 
-> **Not:** Bu aşamada GitHub PR üzerine otomatik comment/review publish etme henüz eklenmemiştir. Webhook inceleme sonucu in-memory store'a kaydedilir.
+> **Not:** Sistem PR thread'ini doldurmamak adına tek bir özet bot yorumu (Single Summary Comment) oluşturur veya günceller. Şimdilik satır içi (inline) file review comments eklenmemiştir.
 
 ### 3. Review Durumu Sorgulama
 * **Endpoint**: `GET /webhook/reviews/{review_key}` veya `GET /webhook/status?review_key=<key>`
 * **Örnek Key**: `owner/repo#42@a1b2c3d4e5f6...`
-* **Dönen Bilgiler**: `status` (processing, completed, failed), `candidate_count`, `verified_findings_count`, `rejected_findings_count`.
+* **Dönen Bilgiler**: `status` (processing, completed, failed), `candidate_count`, `verified_findings_count`, `rejected_findings_count`, `comment_publish_status`.

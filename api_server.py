@@ -28,6 +28,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from run_pr_review import run_review
 from webhook_idempotency import WebhookIdempotencyStore
+from github_client import GitHubClient
 
 # Configure Structured Logging
 logging.basicConfig(
@@ -297,12 +298,33 @@ async def execute_webhook_background_review(
                 )
             )
 
-        # Step 4: Mark review completed in idempotency store
+        # Step 4: Publish single summary comment to GitHub PR
+        comment_publish_status = "skipped"
+        comment_publish_error = None
+        try:
+            gh_client = GitHubClient(token=token)
+            publish_res = gh_client.publish_review_summary(
+                repo_full_name=repo_full_name,
+                pr_number=pr_number,
+                head_sha=head_sha,
+                verified_findings=report.get("verified_findings", []),
+                rejected_findings=report.get("rejected_findings", [])
+            )
+            comment_publish_status = publish_res.get("status", "unknown")
+            logger.info(f"GitHub summary comment {comment_publish_status} for {review_key}")
+        except Exception as ce:
+            comment_publish_status = "failed"
+            comment_publish_error = str(ce)
+            logger.warning(f"Failed to publish GitHub comment for {review_key}: {ce}")
+
+        # Step 5: Mark review completed in idempotency store
         summary = {
             "changed_files_count": report.get("changed_files_count", 0),
             "candidate_count": report.get("candidate_count", 0),
             "verified_findings_count": report.get("verified_findings_count", 0),
             "rejected_findings_count": report.get("rejected_findings_count", 0),
+            "comment_publish_status": comment_publish_status,
+            "comment_publish_error": comment_publish_error,
             "status": report.get("status", "COMPLETED")
         }
         IDEMPOTENCY_STORE.mark_completed(review_key, summary=summary)
