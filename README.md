@@ -74,3 +74,44 @@ python run_pr_review.py \
   --api-base http://localhost:8000/v1 \
   --output pr_review_report.json
 ```
+
+---
+
+## Run as API Service (FastAPI Server)
+
+PR Review Agent'ı bir REST API mikroservisi olarak çalıştırmak için:
+
+### 1. Servisi Başlatma
+```bash
+python -m uvicorn api_server:app --host 0.0.0.0 --port 8000
+```
+
+### 2. Health Check
+* **Endpoint**: `GET http://localhost:8000/health`
+* **Swagger UI / OpenAPI**: `http://localhost:8000/docs`
+
+### 3. Review İsteği Gönderme
+
+#### cURL:
+```bash
+curl -X POST http://localhost:8000/review \
+  -H "Content-Type: application/json" \
+  -d '{
+    "repo": "C:\\path\\to\\orderapp-server",
+    "branch": "tuba-test-hardcoded-secret",
+    "base": "main",
+    "pmd": false
+  }'
+```
+
+#### Windows PowerShell:
+```powershell
+$body = @{
+    repo = "C:\path\to\orderapp-server"
+    branch = "tuba-test-hardcoded-secret"
+    base = "main"
+    pmd = $false
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri "http://localhost:8000/review" -Method Post -Body $body -ContentType "application/json"
+```

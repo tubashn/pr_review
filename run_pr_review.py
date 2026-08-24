@@ -134,7 +134,10 @@ class PRReviewRunner:
         api_base: Optional[str] = None,
         api_key: Optional[str] = None,
         run_pmd: bool = False,
-        dry_run: bool = False
+        dry_run: bool = False,
+        loaded_model: Any = None,
+        tokenizer: Any = None,
+        model_cache: Optional[Dict[str, Any]] = None
     ):
         self.repo_path = repo_path.resolve()
         self.branch = branch
@@ -149,8 +152,9 @@ class PRReviewRunner:
         self.dry_run = dry_run
 
         self.temp_worktree_path: Optional[Path] = None
-        self.loaded_model = None
-        self.tokenizer = None
+        self.loaded_model = loaded_model
+        self.tokenizer = tokenizer
+        self.model_cache = model_cache
 
     def create_worktree(self) -> Path:
         """Creates an isolated temporary worktree for the target branch without modifying target repo."""
@@ -394,6 +398,14 @@ class PRReviewRunner:
 
     def initialize_verifier_backend(self):
         """Initializes backend model if using local transformers or OpenAI API."""
+        if self.loaded_model is not None and self.tokenizer is not None:
+            return
+
+        if self.model_cache is not None and "model" in self.model_cache and "tokenizer" in self.model_cache:
+            self.loaded_model = self.model_cache["model"]
+            self.tokenizer = self.model_cache["tokenizer"]
+            return
+
         if self.backend == "mock" or self.dry_run:
             return
 
@@ -432,6 +444,11 @@ class PRReviewRunner:
 
                 self.loaded_model = AutoModelForCausalLM.from_pretrained(self.model_id, **model_kwargs)
                 print(f"[Verifier] Model {self.model_id} ready.")
+
+                if self.model_cache is not None:
+                    self.model_cache["model"] = self.loaded_model
+                    self.model_cache["tokenizer"] = self.tokenizer
+                    self.model_cache["model_id"] = self.model_id
             except Exception as e:
                 print(f"[Verifier Error] Failed to load model: {e}", file=sys.stderr)
                 raise
@@ -604,11 +621,16 @@ Verify this candidate and output the JSON verdict."""
 
             if not diff_results:
                 print("No changed Java files found in this Pull Request.")
+                elapsed = round(time.time() - start_time, 2)
                 report = {
                     "target_repo": str(self.repo_path),
                     "branch": self.branch,
                     "base_branch": self.base_branch,
+                    "execution_time_seconds": elapsed,
+                    "model_id": self.model_id,
+                    "backend": self.backend,
                     "changed_files_count": 0,
+                    "changed_files": [],
                     "candidate_count": 0,
                     "verified_findings_count": 0,
                     "rejected_findings_count": 0,
@@ -665,6 +687,45 @@ Verify this candidate and output the JSON verdict."""
 
         finally:
             self.cleanup_worktree()
+
+
+def run_review(
+    repo: str,
+    branch: str,
+    base: str = "main",
+    model_id: str = "Qwen/Qwen2.5-Coder-7B-Instruct",
+    backend: str = "transformers",
+    quantization: str = "4bit",
+    device: str = "auto",
+    api_base: Optional[str] = None,
+    api_key: Optional[str] = None,
+    pmd: bool = False,
+    dry_run: bool = False,
+    loaded_model: Any = None,
+    tokenizer: Any = None,
+    model_cache: Optional[Dict[str, Any]] = None,
+    output_path: Optional[Path] = None
+) -> Dict[str, Any]:
+    """
+    Reusable orchestration function for both CLI and FastAPI server.
+    """
+    runner = PRReviewRunner(
+        repo_path=Path(repo),
+        branch=branch,
+        base_branch=base,
+        model_id=model_id,
+        backend=backend,
+        quantization=quantization,
+        device=device,
+        api_base=api_base,
+        api_key=api_key,
+        run_pmd=pmd,
+        dry_run=dry_run,
+        loaded_model=loaded_model,
+        tokenizer=tokenizer,
+        model_cache=model_cache
+    )
+    return runner.run(output_path=output_path)
 
 
 def main():
