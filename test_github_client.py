@@ -5,12 +5,13 @@ Tests:
 2. Create comment (POST) when no bot comment exists on PR
 3. Update comment (PATCH) when bot comment with marker already exists on PR
 4. Non-bot user comments are ignored and never updated
-5. Clean review produces 'No verified issues found' markdown
+5. Clean review produces 'No verified issues found' markdown with clean heading structure
 6. Review with findings produces structured markdown with emojis and details
 7. Missing optional finding fields do not cause exceptions
 8. Token not configured skips comment publishing safely
 9. GitHub API errors do not fail or discard the review result
 10. Multiple commits on same PR update the same bot comment (idempotent comment lifecycle)
+11. Pagination support: finds bot comment located on later pages (e.g. page 2+)
 """
 
 import json
@@ -35,10 +36,13 @@ class TestGitHubCommentPublishing(unittest.TestCase):
             rejected_findings=[{"candidate_id": "c-1"}]
         )
         self.assertIn(BOT_COMMENT_MARKER, md)
+        self.assertIn("## 🤖 AI PR Review", md)
         self.assertIn("**Reviewed commit:** `a1b2c3d`", md)
         self.assertIn("Verified findings: **0**", md)
         self.assertIn("Rejected findings: **1**", md)
-        self.assertIn("No verified issues found", md)
+        self.assertIn("✅ **No verified issues found.**", md)
+        self.assertNotIn("**##", md)
+        self.assertNotIn("##**", md)
 
     def test_markdown_formatting_with_findings(self):
         findings = [
@@ -66,11 +70,15 @@ class TestGitHubCommentPublishing(unittest.TestCase):
             rejected_findings=[]
         )
         self.assertIn(BOT_COMMENT_MARKER, md)
+        self.assertIn("## 🤖 AI PR Review", md)
+        self.assertIn("**Reviewed commit:** `9876543`", md)
         self.assertIn("Verified findings: **2**", md)
         self.assertIn("🔴 Security — `src/main/java/com/demo/AuthService.java:15`", md)
         self.assertIn("Hardcoded secret 'sk_live_123' found.", md)
         self.assertIn("🟡 Maintainability — `src/main/java/com/demo/OrderService.java:42`", md)
         self.assertIn("Unused local variable 'tempId'.", md)
+        self.assertNotIn("**##", md)
+        self.assertNotIn("##**", md)
 
     def test_missing_optional_fields_no_crash(self):
         # Empty dictionary finding
@@ -90,7 +98,7 @@ class TestGitHubCommentPublishing(unittest.TestCase):
 
         # 1. list_pr_comments returns only regular user comments
         mock_send.side_effect = [
-            (200, [{"id": 101, "body": "LGTM! Nice PR."}]),  # list comments
+            (200, [{"id": 101, "body": "LGTM! Nice PR."}]),  # list comments (len < 100 -> page 1 ends)
             (201, {"id": 202, "body": "Bot comment"})         # create comment
         ]
 
@@ -109,11 +117,11 @@ class TestGitHubCommentPublishing(unittest.TestCase):
         self.assertEqual(mock_send.call_args_list[1][0][0], "POST")
 
     @patch.object(GitHubClient, "_send_request")
-    def test_update_existing_bot_comment(self, mock_send):
+    def test_update_existing_bot_comment_on_new_sha(self, mock_send):
         client = GitHubClient(token="mock_token")
 
         # list_pr_comments returns a user comment and an existing bot comment
-        existing_bot_body = f"{BOT_COMMENT_MARKER}\n## 🤖 AI PR Review\nOld review"
+        existing_bot_body = f"{BOT_COMMENT_MARKER}\n## 🤖 AI PR Review\nOld review for commit abc"
         mock_send.side_effect = [
             (200, [
                 {"id": 101, "body": "User question"},
@@ -122,10 +130,11 @@ class TestGitHubCommentPublishing(unittest.TestCase):
             (200, {"id": 555, "body": "Updated content"}) # update comment
         ]
 
+        # New SHA arrives
         res = client.publish_review_summary(
             repo_full_name="org/repo",
             pr_number=10,
-            head_sha="new_sha_789",
+            head_sha="new_sha_789xyz",
             verified_findings=[],
             rejected_findings=[]
         )
@@ -136,6 +145,36 @@ class TestGitHubCommentPublishing(unittest.TestCase):
         # Check that PATCH was used on comment 555
         self.assertEqual(mock_send.call_args_list[1][0][0], "PATCH")
         self.assertIn("/555", mock_send.call_args_list[1][0][1])
+
+    @patch.object(GitHubClient, "_send_request")
+    def test_pagination_finds_bot_comment_on_later_page(self, mock_send):
+        client = GitHubClient(token="mock_token")
+
+        # Page 1: 100 regular user comments
+        page1_comments = [{"id": i, "body": f"User comment {i}"} for i in range(1, 101)]
+        # Page 2: Bot comment found on page 2
+        existing_bot_body = f"{BOT_COMMENT_MARKER}\n## 🤖 AI PR Review\nPage 2 bot comment"
+        page2_comments = [{"id": 999, "body": existing_bot_body}]
+
+        mock_send.side_effect = [
+            (200, page1_comments),  # Page 1
+            (200, page2_comments),  # Page 2
+            (200, {"id": 999, "body": "Updated on page 2"}) # PATCH update
+        ]
+
+        res = client.publish_review_summary(
+            repo_full_name="org/repo",
+            pr_number=10,
+            head_sha="latest_sha_456",
+            verified_findings=[],
+            rejected_findings=[]
+        )
+
+        self.assertEqual(res["status"], "updated")
+        self.assertEqual(res["comment_id"], 999)
+        self.assertEqual(mock_send.call_count, 3)
+        self.assertEqual(mock_send.call_args_list[2][0][0], "PATCH")
+        self.assertIn("/999", mock_send.call_args_list[2][0][1])
 
     def test_token_not_configured_skips_publishing(self):
         client = GitHubClient(token=None)

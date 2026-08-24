@@ -159,16 +159,22 @@ class GitHubClient:
             logger.warning(f"GitHub API {method} {url} network error: {e}")
             raise
 
-    def list_pr_comments(self, repo_full_name: str, pr_number: int) -> List[Dict[str, Any]]:
-        """Fetches issue comments for the specified PR."""
-        url = f"{self.api_base}/repos/{repo_full_name}/issues/{pr_number}/comments"
-        status_code, data = self._send_request("GET", url)
-        if status_code == 200 and isinstance(data, list):
-            return data
-        return []
+    def list_pr_comments(self, repo_full_name: str, pr_number: int, max_pages: int = 10) -> List[Dict[str, Any]]:
+        """Fetches issue comments for the specified PR, with pagination support."""
+        all_comments = []
+        for page in range(1, max_pages + 1):
+            url = f"{self.api_base}/repos/{repo_full_name}/issues/{pr_number}/comments?per_page=100&page={page}"
+            status_code, data = self._send_request("GET", url)
+            if status_code != 200 or not isinstance(data, list):
+                break
+            all_comments.extend(data)
+            if len(data) < 100:
+                # Last page reached
+                break
+        return all_comments
 
     def find_agent_comment(self, repo_full_name: str, pr_number: int) -> Optional[Dict[str, Any]]:
-        """Searches existing comments for the unique bot comment marker."""
+        """Searches existing comments (across pages) for the unique bot comment marker."""
         comments = self.list_pr_comments(repo_full_name, pr_number)
         for comment in comments:
             body = comment.get("body", "")

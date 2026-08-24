@@ -241,6 +241,67 @@ class TestGitHubWebhook(unittest.TestCase):
         self.assertEqual(response_query.status_code, 200)
         self.assertEqual(response_query.json()["review_key"], key)
 
+    @patch("api_server.execute_webhook_background_review")
+    def test_duplicate_webhook_does_not_trigger_second_review_task(self, mock_bg):
+        with patch.dict(os.environ, {"GITHUB_WEBHOOK_SECRET": "", "GITHUB_ALLOWED_REPOS": ""}):
+            payload = self.get_sample_payload(sha="duplicate_check_sha")
+            raw_body = json.dumps(payload).encode("utf-8")
+            headers = {"X-GitHub-Event": "pull_request", "Content-Type": "application/json"}
+
+            # First delivery triggers background task
+            resp1 = self.client.post("/webhook/github", data=raw_body, headers=headers)
+            self.assertEqual(resp1.status_code, 202)
+            self.assertEqual(mock_bg.call_count, 1)
+
+            # Duplicate delivery does NOT trigger background task
+            resp2 = self.client.post("/webhook/github", data=raw_body, headers=headers)
+            self.assertEqual(resp2.status_code, 200)
+            self.assertEqual(resp2.json()["status"], "duplicate")
+            self.assertEqual(mock_bg.call_count, 1) # Still 1
+
+    @patch("api_server.run_review")
+    @patch("api_server.subprocess.run")
+    @patch("api_server.GitHubClient.publish_review_summary")
+    def test_github_comment_failure_preserves_completed_review_status(self, mock_publish, mock_subp, mock_review):
+        import asyncio
+        from api_server import execute_webhook_background_review
+
+        # Mock run_review to return valid findings
+        mock_review.return_value = {
+            "status": "COMPLETED",
+            "changed_files_count": 1,
+            "candidate_count": 2,
+            "verified_findings_count": 1,
+            "rejected_findings_count": 1,
+            "verified_findings": [{"candidate_id": "c1"}],
+            "rejected_findings": [{"candidate_id": "c2"}]
+        }
+        # Mock GitHub comment publishing to raise an HTTP exception
+        mock_publish.side_effect = RuntimeError("GitHub API 403 Forbidden")
+
+        review_key = "org/repo#99@sha_test_comment_err"
+        IDEMPOTENCY_STORE.acquire_review("org/repo", 99, "sha_test_comment_err")
+
+        # Run background execution directly
+        asyncio.run(execute_webhook_background_review(
+            review_key=review_key,
+            repo_full_name="org/repo",
+            pr_number=99,
+            head_sha="sha_test_comment_err",
+            base_ref="main",
+            head_ref="feature",
+            clone_url="https://github.com/org/repo.git"
+        ))
+
+        # Check status is COMPLETED and comment_publish_status is failed
+        status_record = IDEMPOTENCY_STORE.get_status(review_key)
+        self.assertIsNotNone(status_record)
+        self.assertEqual(status_record["status"], "completed")
+        summary = status_record["summary"]
+        self.assertEqual(summary["verified_findings_count"], 1)
+        self.assertEqual(summary["comment_publish_status"], "failed")
+        self.assertIn("GitHub API 403 Forbidden", summary["comment_publish_error"])
+
 
 if __name__ == "__main__":
     unittest.main()
