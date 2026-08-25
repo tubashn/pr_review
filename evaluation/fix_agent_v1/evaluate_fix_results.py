@@ -3,11 +3,11 @@ Evaluation Results Aggregator and Multi-Tier Semantic Metric Calculator for Fix 
 Computes:
 1. Gate & Scope: Eligibility Accuracy, Safe Skip Rate
 2. Mechanical Quality: Model Edit Gen Rate, Synthesized Diff Valid Rate, Path Safety, Size Safety, Apply Rate, Mechanical Success Rate
-3. Semantic Quality:
+3. Semantic Quality (Frozen Hierarchy):
    - Canonical Source Match Rate (Exact/Whitespace normalized match with expected_after.java)
    - Token Equivalent Match Rate (Java lexical token stream equality, ignoring whitespace/blank lines)
-   - Deterministic Semantic Oracle Pass Rate (Alternative valid implementations)
-   - Semantic Accepted Fix Rate (Overall semantic correctness)
+   - Deterministic Semantic Oracle Pass Rate (Applicable scenarios only; N/A if 0 applicable)
+   - Automated Semantic Accepted Fix Rate (Overall automated semantic correctness)
    - Semantic Review Required Count vs Confirmed Wrong Fix Count
 4. Success Mode and Failure Taxonomy Distributions
 """
@@ -30,9 +30,8 @@ from patch_validator import apply_unified_diff_to_text
 
 
 def recompute_item_semantics(item: Dict[str, Any], scenario_map: Dict[str, Any]) -> Dict[str, Any]:
-    """Recomputes multi-tier semantic correctness metrics for an item if not present or needs refresh."""
-    if "canonical_source_match" in item and "token_equivalent" in item and "semantic_accepted_fix_rate" not in item:
-        # Item already has multi-tier fields computed
+    """Recomputes multi-tier semantic correctness metrics for an item against frozen hierarchy."""
+    if "canonical_source_match" in item and "token_equivalent" in item:
         return item
 
     sid = item.get("scenario_id")
@@ -41,6 +40,8 @@ def recompute_item_semantics(item: Dict[str, Any], scenario_map: Dict[str, Any])
     actual_status = item.get("actual_fix_status", "skipped")
     validation = item.get("validation", {})
     diff_text = item.get("diff", "")
+    oracle_spec = sc.get("semantic_oracle")
+    oracle_applicable = bool(oracle_spec and isinstance(oracle_spec, dict) and oracle_spec.get("oracle_type"))
 
     mechanical_success = bool(
         actual_status == "generated" and
@@ -57,6 +58,7 @@ def recompute_item_semantics(item: Dict[str, Any], scenario_map: Dict[str, Any])
             "mechanical_success": False,
             "canonical_source_match": False,
             "token_equivalent": False,
+            "oracle_applicable": oracle_applicable,
             "semantic_oracle_pass": False,
             "semantic_match": False,
             "semantic_match_mode": None,
@@ -71,6 +73,7 @@ def recompute_item_semantics(item: Dict[str, Any], scenario_map: Dict[str, Any])
             "mechanical_success": False,
             "canonical_source_match": False,
             "token_equivalent": False,
+            "oracle_applicable": oracle_applicable,
             "semantic_oracle_pass": False,
             "semantic_match": False,
             "semantic_match_mode": None,
@@ -100,6 +103,7 @@ def recompute_item_semantics(item: Dict[str, Any], scenario_map: Dict[str, Any])
             "mechanical_success": False,
             "canonical_source_match": False,
             "token_equivalent": False,
+            "oracle_applicable": oracle_applicable,
             "semantic_oracle_pass": False,
             "semantic_match": False,
             "semantic_match_mode": None,
@@ -111,7 +115,7 @@ def recompute_item_semantics(item: Dict[str, Any], scenario_map: Dict[str, Any])
     sem_res = evaluate_semantic_correctness(
         patched_code=patched_code,
         expected_code=expected_after_text,
-        oracle_spec=sc.get("semantic_oracle")
+        oracle_spec=oracle_spec
     )
 
     canonical_match = sem_res["canonical_source_match"]
@@ -129,6 +133,7 @@ def recompute_item_semantics(item: Dict[str, Any], scenario_map: Dict[str, Any])
         "mechanical_success": mechanical_success,
         "canonical_source_match": canonical_match,
         "token_equivalent": token_equivalent,
+        "oracle_applicable": oracle_applicable,
         "semantic_oracle_pass": oracle_pass,
         "semantic_match": semantic_match,
         "semantic_match_mode": semantic_match_mode,
@@ -190,12 +195,17 @@ def compute_metrics(results_data: Dict[str, Any]) -> Dict[str, Any]:
     # 5. Multi-Tier Semantic Success (on Eligible)
     canonical_match_count = sum(1 for r in eligible_results if r.get("canonical_source_match", False))
     token_equiv_count = sum(1 for r in eligible_results if r.get("token_equivalent", False))
-    oracle_pass_count = sum(1 for r in eligible_results if r.get("semantic_oracle_pass", False))
+    
+    # Oracle metrics: ONLY applicable scenarios
+    oracle_applicable_count = sum(1 for r in eligible_results if r.get("oracle_applicable", False))
+    oracle_pass_count = sum(1 for r in eligible_results if r.get("oracle_applicable", False) and r.get("semantic_oracle_pass", False))
+    oracle_pass_rate = (oracle_pass_count / oracle_applicable_count) if oracle_applicable_count > 0 else None
+
+    # Automated Semantic Accepted (Canonical OR Token Equivalent OR Semantic Oracle Pass)
     semantic_accepted_count = sum(1 for r in eligible_results if r.get("semantic_success", False))
 
     canonical_match_rate = canonical_match_count / n_elig if n_elig else 0.0
     token_equiv_rate = token_equiv_count / n_elig if n_elig else 0.0
-    oracle_pass_rate = oracle_pass_count / n_elig if n_elig else 0.0
     semantic_accepted_rate = semantic_accepted_count / n_elig if n_elig else 0.0
 
     review_required_count = sum(1 for r in eligible_results if r.get("failure_subtype") == "semantic_review_required")
@@ -248,9 +258,14 @@ def compute_metrics(results_data: Dict[str, Any]) -> Dict[str, Any]:
             "eligible_apply_success_rate": round(eligible_apply_rate, 4),
             "eligible_mechanical_success_rate": round(eligible_mechanical_success_rate, 4),
             "canonical_source_match_rate": round(canonical_match_rate, 4),
+            "canonical_source_match_count": canonical_match_count,
             "token_equivalent_match_rate": round(token_equiv_rate, 4),
-            "deterministic_semantic_oracle_pass_rate": round(oracle_pass_rate, 4),
+            "token_equivalent_match_count": token_equiv_count,
+            "oracle_applicable_count": oracle_applicable_count,
+            "oracle_pass_count": oracle_pass_count,
+            "deterministic_semantic_oracle_pass_rate": round(oracle_pass_rate, 4) if oracle_pass_rate is not None else None,
             "semantic_accepted_fix_rate": round(semantic_accepted_rate, 4),
+            "semantic_accepted_fix_count": semantic_accepted_count,
             "semantic_review_required_count": review_required_count,
             "confirmed_wrong_fix_count": wrong_fix_count,
             "average_extra_changed_lines": round(avg_extra_lines, 2)
@@ -284,10 +299,16 @@ def print_report(metrics: Dict[str, Any], split: str, backend: str):
     print(f"  [METRIC] Mechanical Success Rate    : {sm['eligible_mechanical_success_rate'] * 100:.1f}% ({int(sm['eligible_mechanical_success_rate'] * sm['eligible_count'])}/{sm['eligible_count']})")
     print("--------------------------------------------------")
     print("3. MULTI-TIER SEMANTIC CORRECTNESS (on Eligible Scenarios):")
-    print(f"  Tier 1 - Canonical Source Match Rate: {sm['canonical_source_match_rate'] * 100:.1f}% ({int(sm['canonical_source_match_rate'] * sm['eligible_count'])}/{sm['eligible_count']})")
-    print(f"  Tier 2 - Token Equivalent Match Rate: {sm['token_equivalent_match_rate'] * 100:.1f}% ({int(sm['token_equivalent_match_rate'] * sm['eligible_count'])}/{sm['eligible_count']})")
-    print(f"  Tier 3 - Semantic Oracle Pass Rate  : {sm['deterministic_semantic_oracle_pass_rate'] * 100:.1f}% ({int(sm['deterministic_semantic_oracle_pass_rate'] * sm['eligible_count'])}/{sm['eligible_count']})")
-    print(f"  [METRIC] Semantic Accepted Fix Rate : {sm['semantic_accepted_fix_rate'] * 100:.1f}% ({int(sm['semantic_accepted_fix_rate'] * sm['eligible_count'])}/{sm['eligible_count']})")
+    print(f"  Tier 1 - Canonical Source Match Rate: {sm['canonical_source_match_rate'] * 100:.1f}% ({sm['canonical_source_match_count']}/{sm['eligible_count']})")
+    print(f"  Tier 2 - Token Equivalent Match Rate: {sm['token_equivalent_match_rate'] * 100:.1f}% ({sm['token_equivalent_match_count']}/{sm['eligible_count']})")
+    
+    if sm['oracle_applicable_count'] > 0 and sm['deterministic_semantic_oracle_pass_rate'] is not None:
+        print(f"  Tier 3 - Deterministic Semantic Oracle: {sm['deterministic_semantic_oracle_pass_rate'] * 100:.1f}% ({sm['oracle_pass_count']}/{sm['oracle_applicable_count']} applicable)")
+    else:
+        print("  Tier 3 - Deterministic Semantic Oracle: N/A (0 applicable scenarios)")
+
+    print("  ------------------------------------------------")
+    print(f"  [METRIC] Automated Semantic Accepted: {sm['semantic_accepted_fix_rate'] * 100:.1f}% ({sm['semantic_accepted_fix_count']}/{sm['eligible_count']})")
     print(f"  [STATUS] Semantic Review Required   : {sm['semantic_review_required_count']}")
     print(f"  [STATUS] Confirmed Wrong Fix        : {sm['confirmed_wrong_fix_count']}")
     print(f"  Average Extra Changed Lines         : {sm['average_extra_changed_lines']}")

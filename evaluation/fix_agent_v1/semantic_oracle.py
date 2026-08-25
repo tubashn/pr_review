@@ -1,10 +1,10 @@
 """
 Semantic Oracle and Multi-Tier Correctness Evaluator for Fix Agent Evaluation Harness.
-Distinguishes between:
+Frozen Semantic Acceptance Hierarchy:
 1. Canonical Source Match (Exact / Whitespace Normalized Match with expected_after.java)
 2. Java Token Equivalence (Java lexical stream equality, ignoring whitespace/blank lines but preserving literals)
-3. Deterministic Semantic Oracle (Alternative valid semantic implementations)
-4. Semantic Review Required vs Confirmed Wrong Fix
+3. Deterministic Semantic Oracle (Model-independent generic postconditions / alternative AST variants)
+4. Semantic Review Required (Unresolved alternative when no oracle exists) vs Confirmed Wrong Fix (Oracle failed)
 """
 
 import sys
@@ -50,15 +50,18 @@ def evaluate_semantic_correctness(
     oracle_spec: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
-    Evaluates semantic correctness across 3 tiers:
+    Evaluates semantic correctness across 3 frozen tiers:
     Tier 1: Canonical source match
     Tier 2: Java token equivalence
-    Tier 3: Deterministic semantic oracle (e.g. alternative token variants)
+    Tier 3: Deterministic semantic oracle (only when applicable)
     """
+    oracle_applicable = bool(oracle_spec and isinstance(oracle_spec, dict) and oracle_spec.get("oracle_type"))
+
     if not patched_code:
         return {
             "canonical_source_match": False,
             "token_equivalent": False,
+            "oracle_applicable": oracle_applicable,
             "semantic_oracle_pass": False,
             "semantic_match": False,
             "semantic_match_mode": None,
@@ -73,7 +76,8 @@ def evaluate_semantic_correctness(
             return {
                 "canonical_source_match": True,
                 "token_equivalent": True,
-                "semantic_oracle_pass": True,
+                "oracle_applicable": oracle_applicable,
+                "semantic_oracle_pass": False,
                 "semantic_match": True,
                 "semantic_match_mode": "canonical",
                 "failure_subtype": "success_canonical"
@@ -85,14 +89,15 @@ def evaluate_semantic_correctness(
             return {
                 "canonical_source_match": False,
                 "token_equivalent": True,
-                "semantic_oracle_pass": True,
+                "oracle_applicable": oracle_applicable,
+                "semantic_oracle_pass": False,
                 "semantic_match": True,
                 "semantic_match_mode": "token_equivalent",
                 "failure_subtype": "success_token_equivalent"
             }
 
-    # Tier 3: Deterministic Semantic Oracle
-    if oracle_spec and isinstance(oracle_spec, dict):
+    # Tier 3: Deterministic Semantic Oracle (Applicable Scenarios Only)
+    if oracle_applicable:
         oracle_type = oracle_spec.get("oracle_type")
         if oracle_type == "alternative_token_variants":
             variants = oracle_spec.get("variants", [])
@@ -101,19 +106,22 @@ def evaluate_semantic_correctness(
                     return {
                         "canonical_source_match": False,
                         "token_equivalent": False,
+                        "oracle_applicable": True,
                         "semantic_oracle_pass": True,
                         "semantic_match": True,
                         "semantic_match_mode": "semantic_oracle",
                         "failure_subtype": "success_semantic_oracle"
                     }
 
-    # Fallback Classification: If unconfirmed by oracle, differentiate between review-required and wrong
-    # If no oracle exists for this scenario, flag as semantic_review_required
-    failure_subtype = "semantic_review_required" if not oracle_spec else "wrong_fix"
+    # Tier 4: Fallback classification
+    # If an oracle was defined and failed to match -> confirmed wrong_fix
+    # If no oracle exists and not canonical/token-equivalent -> semantic_review_required
+    failure_subtype = "wrong_fix" if oracle_applicable else "semantic_review_required"
 
     return {
         "canonical_source_match": False,
         "token_equivalent": False,
+        "oracle_applicable": oracle_applicable,
         "semantic_oracle_pass": False,
         "semantic_match": False,
         "semantic_match_mode": None,

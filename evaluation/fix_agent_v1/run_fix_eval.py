@@ -157,6 +157,7 @@ def run_evaluation(
 
         canonical_source_match = False
         token_equivalent = False
+        oracle_applicable = bool(sc.get("semantic_oracle"))
         semantic_oracle_pass = False
         semantic_match = False
         semantic_match_mode = None
@@ -244,6 +245,7 @@ def run_evaluation(
             "mechanical_success": mechanical_success,
             "canonical_source_match": canonical_source_match,
             "token_equivalent": token_equivalent,
+            "oracle_applicable": oracle_applicable,
             "semantic_oracle_pass": semantic_oracle_pass,
             "semantic_match": semantic_match,
             "semantic_match_mode": semantic_match_mode,

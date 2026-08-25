@@ -268,16 +268,7 @@
       "source_fixture": "fixtures/FA-015/before.java",
       "expected_after_fixture": "fixtures/FA-015/expected_after.java",
       "difficulty": "HARD",
-      "notes": "Cast part to double: `((double) part / total) * 100.0`.",
-      "semantic_oracle": {
-        "oracle_type": "alternative_token_variants",
-        "variants": [
-          "package com.example.math;\n\npublic class PercentageFormatter {\n    public double calculatePercentage(int part, int total) {\n        if (total == 0) return 0.0;\n        return (double) part / total * 100.0;\n    }\n}\n",
-          "package com.example.math;\n\npublic class PercentageFormatter {\n    public double calculatePercentage(int part, int total) {\n        if (total == 0) return 0.0;\n        return ((double) part / total) * 100.0;\n    }\n}\n",
-          "package com.example.math;\n\npublic class PercentageFormatter {\n    public double calculatePercentage(int part, int total) {\n        if (total == 0) return 0.0;\n        return (part / (double) total) * 100.0;\n    }\n}\n",
-          "package com.example.math;\n\npublic class PercentageFormatter {\n    public double calculatePercentage(int part, int total) {\n        if (total == 0) return 0.0;\n        return (double) part / (double) total * 100.0;\n    }\n}\n"
-        ]
-      }
+      "notes": "Cast part to double: `((double) part / total) * 100.0`."
     },
     {
       "scenario_id": "FA-016",

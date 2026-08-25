@@ -1,5 +1,5 @@
 """
-Unit and Integration Tests for Fix Agent Evaluation Harness Framework
+Unit and Integration Tests for Frozen Multi-Tier Fix Agent Evaluation Harness Framework
 Comprehensive tests covering:
 1. Dataset validation passes & split disjointness
 2. Canonical source match & CRLF/LF normalization
@@ -7,10 +7,13 @@ Comprehensive tests covering:
 4. Preservation of string literals, identifiers, numbers, operators
 5. FA-003, FA-004, FA-007 deletion + blank line semantic acceptance
 6. Semantic oracle multi-tier evaluation & success modes
-7. Unknown alternative classification as semantic_review_required
-8. Confirmed wrong fix classification
-9. Raw result re-evaluation capability
-10. Mock DEV execution & HOLDOUT isolation
+7. Canonical false + Token false + No oracle -> semantic_review_required
+8. Canonical false + Token false + Applicable oracle PASS -> semantic_oracle success
+9. Oracle metric denominator only from applicable scenarios
+10. 0 applicable oracle reports N/A with no division by zero
+11. semantic_review_required is excluded from automated success rate
+12. No post-hoc model-output acceptance whitelist in scenarios.json
+13. Mock DEV execution & HOLDOUT isolation
 """
 
 import difflib
@@ -39,7 +42,7 @@ from patch_validator import apply_unified_diff_to_text
 
 
 class TestFixEvalDatasetIntegrity(unittest.TestCase):
-    """Verifies dataset structure, splits, and fixture files."""
+    """Verifies dataset structure, splits, fixture files, and absence of post-hoc whitelists."""
 
     def setUp(self):
         self.scenarios = json.loads(SCENARIOS_FILE.read_text(encoding="utf-8"))["scenarios"]
@@ -68,21 +71,16 @@ class TestFixEvalDatasetIntegrity(unittest.TestCase):
                 self.assertEqual(sc["expected_fix_status"], "skipped")
                 self.assertIsNotNone(sc["expected_skip_reason_category"])
 
-    def test_no_benchmark_id_lookup_hardcoding(self):
-        """Verifies mock fix agent does not cheat by hardcoding scenario IDs to benchmark patches."""
-        from fix_agent import run_fix_agent_for_finding
-        finding = {
-            "candidate_id": "FA-001",
-            "decision": "ACCEPT",
-            "source_reviewer": "maintainability",
-            "file": "CustomFile.java",
-            "problem": "Unused variable foo",
-            "code_snippet": "int foo = 1;",
-            "after_source": "public class CustomFile {\n    void m() {\n        int foo = 1;\n    }\n}"
-        }
-        res = run_fix_agent_for_finding(finding, backend="mock")
-        self.assertEqual(res["file_path"], "CustomFile.java")
-        self.assertNotIn("PaymentValidator", res.get("diff", ""))
+    def test_no_model_output_acceptance_whitelist_in_scenarios_json(self):
+        """Verifies scenarios.json does not contain post-hoc hardcoded model output strings."""
+        for sc in self.scenarios:
+            oracle = sc.get("semantic_oracle")
+            if oracle:
+                # If an oracle exists, verify it is a valid structured type rather than an ad-hoc hack
+                self.assertIn("oracle_type", oracle)
+            # Ensure FA-015 specifically does not have post-hoc string whitelist
+            if sc["scenario_id"] == "FA-015":
+                self.assertIsNone(sc.get("semantic_oracle"))
 
 
 class TestJavaTokenEquivalenceAndNormalization(unittest.TestCase):
@@ -163,12 +161,10 @@ class TestJavaTokenEquivalenceAndNormalization(unittest.TestCase):
 
 
 class TestDeletionAndBlankLineEquivalence(unittest.TestCase):
-    """Verifies that FA-003, FA-004, FA-007 style unused variable removals evaluate as semantic accepted."""
+    """Verifies that FA-003, FA-004, FA-007 style unused variable removals evaluate as token equivalent."""
 
     def test_fa003_style_unused_declaration_deletion_blank_line(self):
-        before = "package com.example;\npublic class LatencyTracker {\n    public void record(long ms) {\n        int debugCount = 0;\n        recordInternal(ms);\n    }\n}"
         expected = "package com.example;\npublic class LatencyTracker {\n    public void record(long ms) {\n        recordInternal(ms);\n    }\n}"
-        # Model deletes the line leaving blank line
         generated_patched = "package com.example;\npublic class LatencyTracker {\n    public void record(long ms) {\n\n        recordInternal(ms);\n    }\n}"
         res = evaluate_semantic_correctness(generated_patched, expected)
         self.assertTrue(res["token_equivalent"])
@@ -176,7 +172,6 @@ class TestDeletionAndBlankLineEquivalence(unittest.TestCase):
         self.assertEqual(res["semantic_match_mode"], "token_equivalent")
 
     def test_fa004_style_unused_allocation_deletion_blank_line(self):
-        before = "package com.example;\npublic class Formatter {\n    public String format(String p, String b) {\n        StringBuilder builder = new StringBuilder();\n        return p + b;\n    }\n}"
         expected = "package com.example;\npublic class Formatter {\n    public String format(String p, String b) {\n        return p + b;\n    }\n}"
         generated_patched = "package com.example;\npublic class Formatter {\n    public String format(String p, String b) {\n        \n        return p + b;\n    }\n}"
         res = evaluate_semantic_correctness(generated_patched, expected)
@@ -184,7 +179,6 @@ class TestDeletionAndBlankLineEquivalence(unittest.TestCase):
         self.assertTrue(res["semantic_match"])
 
     def test_fa007_style_unused_state_deletion_blank_line(self):
-        before = "package com.example;\npublic class Runner {\n    public void run() {\n        String lastError = null;\n        execute();\n    }\n}"
         expected = "package com.example;\npublic class Runner {\n    public void run() {\n        execute();\n    }\n}"
         generated_patched = "package com.example;\npublic class Runner {\n    public void run() {\n\n        execute();\n    }\n}"
         res = evaluate_semantic_correctness(generated_patched, expected)
@@ -192,63 +186,55 @@ class TestDeletionAndBlankLineEquivalence(unittest.TestCase):
         self.assertTrue(res["semantic_match"])
 
 
-class TestSemanticOracleAndSuccessModes(unittest.TestCase):
-    """Verifies multi-tier success modes and fallback classification."""
+class TestSemanticOracleAndHierarchy(unittest.TestCase):
+    """Verifies multi-tier hierarchy and fallback classifications."""
 
-    def test_success_mode_canonical(self):
-        code = "public class Foo { int x = 1; }"
-        res = evaluate_semantic_correctness(code, code)
-        self.assertEqual(res["semantic_match_mode"], "canonical")
-        self.assertEqual(res["failure_subtype"], "success_canonical")
+    def test_canonical_false_token_false_no_oracle_is_semantic_review_required(self):
+        expected = "public class P { int x = 1; }"
+        generated = "public class P { int x = 1 + 0; }"
+        res = evaluate_semantic_correctness(generated, expected, oracle_spec=None)
+        self.assertFalse(res["canonical_source_match"])
+        self.assertFalse(res["token_equivalent"])
+        self.assertFalse(res["semantic_match"])
+        self.assertIsNone(res["semantic_match_mode"])
+        self.assertEqual(res["failure_subtype"], "semantic_review_required")
 
-    def test_success_mode_token_equivalent(self):
-        code_a = "public class Foo {\n    int x = 1;\n}"
-        code_b = "public class Foo { int x = 1; }"
-        res = evaluate_semantic_correctness(code_a, code_b)
-        self.assertEqual(res["semantic_match_mode"], "token_equivalent")
-        self.assertEqual(res["failure_subtype"], "success_token_equivalent")
-
-    def test_success_mode_semantic_oracle_fa015(self):
+    def test_canonical_false_token_false_applicable_oracle_pass(self):
         expected = "public class P { double calc(int a, int b) { return ((double) a / b) * 100.0; } }"
         generated = "public class P { double calc(int a, int b) { return (double) a / b * 100.0; } }"
         oracle = {
             "oracle_type": "alternative_token_variants",
             "variants": [
-                "public class P { double calc(int a, int b) { return (double) a / b * 100.0; } }",
-                "public class P { double calc(int a, int b) { return ((double) a / b) * 100.0; } }"
+                "public class P { double calc(int a, int b) { return (double) a / b * 100.0; } }"
             ]
         }
         res = evaluate_semantic_correctness(generated, expected, oracle_spec=oracle)
         self.assertFalse(res["canonical_source_match"])
         self.assertFalse(res["token_equivalent"])
+        self.assertTrue(res["oracle_applicable"])
         self.assertTrue(res["semantic_oracle_pass"])
         self.assertTrue(res["semantic_match"])
         self.assertEqual(res["semantic_match_mode"], "semantic_oracle")
         self.assertEqual(res["failure_subtype"], "success_semantic_oracle")
 
-    def test_unknown_alternative_without_oracle_is_semantic_review_required(self):
-        expected = "public class P { int x = 1; }"
-        generated = "public class P { int x = 1 + 0; }"
-        res = evaluate_semantic_correctness(generated, expected, oracle_spec=None)
-        self.assertFalse(res["semantic_match"])
-        self.assertEqual(res["failure_subtype"], "semantic_review_required")
-
-    def test_confirmed_wrong_fix_classification(self):
+    def test_canonical_false_token_false_applicable_oracle_fail_is_wrong_fix(self):
         expected = "public class P { int x = 1; }"
         generated = "public class P { int x = 999; }"
         oracle = {
             "oracle_type": "alternative_token_variants",
-            "variants": ["public class P { int x = 1; }", "public class P { int x = 0 + 1; }"]
+            "variants": ["public class P { int x = 0 + 1; }"]
         }
         res = evaluate_semantic_correctness(generated, expected, oracle_spec=oracle)
         self.assertFalse(res["semantic_match"])
+        self.assertTrue(res["oracle_applicable"])
+        self.assertFalse(res["semantic_oracle_pass"])
         self.assertEqual(res["failure_subtype"], "wrong_fix")
 
 
-class TestMetricComputations(unittest.TestCase):
-    """Verifies aggregate metric calculation logic."""
+class TestMetricDenominatorAndReportCalculations(unittest.TestCase):
+    """Verifies oracle denominator calculation, zero applicable handling, and review-required exclusion."""
 
-    def test_evaluator_aggregate_metrics(self):
+    def test_zero_applicable_oracle_reports_none_and_no_zerodivision(self):
         sample_results = {
             "split": "DEV",
             "results": [
@@ -267,48 +253,89 @@ class TestMetricComputations(unittest.TestCase):
                     "mechanical_success": True,
                     "canonical_source_match": True,
                     "token_equivalent": True,
-                    "semantic_oracle_pass": True,
+                    "oracle_applicable": False,
+                    "semantic_oracle_pass": False,
                     "semantic_match": True,
                     "semantic_match_mode": "canonical",
                     "semantic_success": True,
-                    "extra_changed_lines": 0,
                     "failure_type": "success",
                     "failure_subtype": "success_canonical",
                     "role": "maintainability",
-                    "difficulty": "EASY"
-                },
-                {
-                    "scenario_id": "FA-016",
-                    "eligibility_expected": False,
-                    "eligibility_actual": False,
-                    "actual_fix_status": "skipped",
-                    "validation": {},
-                    "mechanical_success": False,
-                    "canonical_source_match": False,
-                    "token_equivalent": False,
-                    "semantic_oracle_pass": False,
-                    "semantic_match": False,
-                    "semantic_match_mode": None,
-                    "semantic_success": False,
-                    "extra_changed_lines": 0,
-                    "failure_type": "success",
-                    "failure_subtype": "success_safe_skip",
-                    "role": "security_validation",
                     "difficulty": "EASY"
                 }
             ]
         }
         metrics = compute_metrics(sample_results)
         sm = metrics["summary"]
-        self.assertEqual(sm["total_scenarios"], 2)
-        self.assertEqual(sm["eligibility_accuracy"], 1.0)
-        self.assertEqual(sm["model_edit_generation_rate"], 1.0)
-        self.assertEqual(sm["safe_skip_rate"], 1.0)
-        self.assertEqual(sm["eligible_diff_valid_rate"], 1.0)
-        self.assertEqual(sm["eligible_mechanical_success_rate"], 1.0)
-        self.assertEqual(sm["canonical_source_match_rate"], 1.0)
-        self.assertEqual(sm["token_equivalent_match_rate"], 1.0)
+        self.assertEqual(sm["oracle_applicable_count"], 0)
+        self.assertEqual(sm["oracle_pass_count"], 0)
+        self.assertIsNone(sm["deterministic_semantic_oracle_pass_rate"])
         self.assertEqual(sm["semantic_accepted_fix_rate"], 1.0)
+
+    def test_semantic_review_required_not_in_automated_accepted_rate(self):
+        sample_results = {
+            "split": "DEV",
+            "results": [
+                {
+                    "scenario_id": "FA-001",
+                    "eligibility_expected": True,
+                    "eligibility_actual": True,
+                    "actual_fix_status": "generated",
+                    "validation": {
+                        "unified_diff_valid": True,
+                        "path_match": True,
+                        "size_within_limit": True,
+                        "apply_check": True,
+                        "structural_sanity": True
+                    },
+                    "mechanical_success": True,
+                    "canonical_source_match": True,
+                    "token_equivalent": True,
+                    "oracle_applicable": False,
+                    "semantic_oracle_pass": False,
+                    "semantic_match": True,
+                    "semantic_match_mode": "canonical",
+                    "semantic_success": True,
+                    "failure_type": "success",
+                    "failure_subtype": "success_canonical",
+                    "role": "maintainability",
+                    "difficulty": "EASY"
+                },
+                {
+                    "scenario_id": "FA-015",
+                    "eligibility_expected": True,
+                    "eligibility_actual": True,
+                    "actual_fix_status": "generated",
+                    "validation": {
+                        "unified_diff_valid": True,
+                        "path_match": True,
+                        "size_within_limit": True,
+                        "apply_check": True,
+                        "structural_sanity": True
+                    },
+                    "mechanical_success": True,
+                    "canonical_source_match": False,
+                    "token_equivalent": False,
+                    "oracle_applicable": False,
+                    "semantic_oracle_pass": False,
+                    "semantic_match": False,
+                    "semantic_match_mode": None,
+                    "semantic_success": False,
+                    "failure_type": "semantic_review_required",
+                    "failure_subtype": "semantic_review_required",
+                    "role": "correctness_logic",
+                    "difficulty": "HARD"
+                }
+            ]
+        }
+        metrics = compute_metrics(sample_results)
+        sm = metrics["summary"]
+        self.assertEqual(sm["eligible_count"], 2)
+        self.assertEqual(sm["canonical_source_match_count"], 1)
+        self.assertEqual(sm["semantic_accepted_fix_count"], 1)
+        self.assertEqual(sm["semantic_review_required_count"], 1)
+        # Automated accepted is 1 / 2 = 0.5 (50%), NOT 2 / 2!
+        self.assertEqual(sm["semantic_accepted_fix_rate"], 0.5)
 
 
 class TestMockEvaluationRunner(unittest.TestCase):

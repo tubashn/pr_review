@@ -95,7 +95,7 @@ python evaluation/fix_agent_v1/evaluate_fix_results.py \
 
 ## 📐 Evaluation Metrics & Failure Taxonomy
 
-### Multi-Tier Metric Hierarchy
+### Frozen Multi-Tier Metric Hierarchy
 
 | Tier / Category | Metric | Definition |
 |---|---|---|
@@ -109,8 +109,9 @@ python evaluation/fix_agent_v1/evaluate_fix_results.py \
 | **Mechanical** | **Mechanical Success Rate** | All mechanical checks pass: grounded + valid diff + size safe + path safe + applied + structural sanity. |
 | **Semantic Tier 1** | **Canonical Source Match Rate** | Patched source matches canonical `expected_after.java` (normalized whitespace). |
 | **Semantic Tier 2** | **Token Equivalent Match Rate** | Java lexical token stream matches expected code (ignores formatting/blank lines but preserves literals and operators). |
-| **Semantic Tier 3** | **Semantic Oracle Pass Rate** | Satisfies benchmark-defined deterministic semantic oracle (e.g. alternative valid mathematical expressions). |
-| **Overall Semantic**| **Semantic Accepted Fix Rate** | Mechanical Success AND (Canonical Match OR Token Equivalent OR Semantic Oracle Pass). |
+| **Semantic Tier 3** | **Semantic Oracle Pass Rate** | Applicable scenarios only: rate of passing model-independent deterministic oracle (N/A if 0 applicable scenarios). |
+| **Overall Semantic**| **Automated Semantic Accepted Fix Rate** | Mechanical Success AND (Canonical Match OR Token Equivalent OR Semantic Oracle Pass). |
+| **Unresolved** | **Semantic Review Required** | Mechanical checks passed but patch is non-canonical, not token-equivalent, and lacks oracle (e.g. FA-015 alternative cast). Excluded from automated success rate. |
 
 ### Failure & Success Taxonomy
 * `success_canonical`: Patch produced exact canonical source form matching `expected_after.java`.
