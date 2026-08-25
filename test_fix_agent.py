@@ -610,5 +610,226 @@ class TestAPIServerFixAgent(unittest.TestCase):
         self.assertIsInstance(data["fix_suggestions"], list)
 
 
+class TestHardenPreModelSafetyGates(unittest.TestCase):
+    """Verifies that ineligible findings never invoke model generation (call count = 0)."""
+
+    def test_security_findings_skip_with_zero_model_calls(self):
+        from unittest.mock import MagicMock
+        from fix_agent import run_fix_agent_for_finding
+
+        mock_model = MagicMock()
+        mock_tokenizer = MagicMock()
+
+        finding = {
+            "candidate_id": "sec-1",
+            "decision": "ACCEPT",
+            "source_reviewer": "security_validation",
+            "file": "src/main/java/com/example/auth/AuthService.java",
+            "line": 10,
+            "problem": "SQL injection vulnerability in query builder.",
+            "code_snippet": "String q = 'SELECT * FROM users WHERE id=' + id;",
+            "after_source": "public class AuthService { public void query(String id) {} }"
+        }
+
+        res = run_fix_agent_for_finding(
+            finding=finding,
+            backend="transformers",
+            loaded_model=mock_model,
+            tokenizer=mock_tokenizer
+        )
+
+        self.assertEqual(res["fix_status"], "skipped")
+        self.assertEqual(res["skip_reason"], "security_findings_not_auto_fixed")
+        mock_model.generate.assert_not_called()
+        mock_tokenizer.encode.assert_not_called()
+
+    def test_absence_findings_skip_with_zero_model_calls(self):
+        from unittest.mock import MagicMock
+        from fix_agent import run_fix_agent_for_finding
+
+        mock_model = MagicMock()
+        mock_tokenizer = MagicMock()
+
+        finding = {
+            "candidate_id": "abs-1",
+            "decision": "ACCEPT",
+            "source_reviewer": "correctness_logic",
+            "file": "src/main/java/com/example/io/FileHandler.java",
+            "line": 15,
+            "problem": "Unclosed InputStream resource leak without try-with-resources.",
+            "code_snippet": "InputStream is = new FileInputStream(file);",
+            "after_source": "public class FileHandler {}"
+        }
+
+        res = run_fix_agent_for_finding(
+            finding=finding,
+            backend="transformers",
+            loaded_model=mock_model,
+            tokenizer=mock_tokenizer
+        )
+
+        self.assertEqual(res["fix_status"], "skipped")
+        self.assertEqual(res["skip_reason"], "absence_type_not_auto_fixed")
+        mock_model.generate.assert_not_called()
+
+    def test_structured_multi_file_metadata_skips_with_zero_model_calls(self):
+        from unittest.mock import MagicMock
+        from fix_agent import run_fix_agent_for_finding
+
+        for meta_key, meta_val in [
+            ("finding_type", "multi_file"),
+            ("context_scope", "multi_file_rule"),
+            ("scope", "cross_file"),
+            ("file_count", 2),
+            ("affected_files", ["A.java", "B.java"]),
+            ("is_multi_file", True)
+        ]:
+            mock_model = MagicMock()
+            finding = {
+                "candidate_id": "multi-1",
+                "decision": "ACCEPT",
+                "source_reviewer": "correctness_logic",
+                "file": "src/main/java/com/example/api/Service.java",
+                "line": 20,
+                "problem": "Interface contract synchronization required.",
+                "after_source": "public class Service {}",
+                meta_key: meta_val
+            }
+            res = run_fix_agent_for_finding(
+                finding=finding,
+                backend="transformers",
+                loaded_model=mock_model,
+                tokenizer=MagicMock()
+            )
+            self.assertEqual(res["fix_status"], "skipped", f"Failed for {meta_key}={meta_val}")
+            self.assertEqual(res["skip_reason"], "multi_file_not_supported")
+            mock_model.generate.assert_not_called()
+
+    def test_cross_file_text_fallback_skips_with_zero_model_calls(self):
+        from unittest.mock import MagicMock
+        from fix_agent import run_fix_agent_for_finding
+
+        mock_model = MagicMock()
+        finding = {
+            "candidate_id": "cf-1",
+            "decision": "ACCEPT",
+            "source_reviewer": "maintainability",
+            "file": "src/main/java/com/example/db/Entity.java",
+            "line": 8,
+            "problem": "Renaming column requires synchronized update of V2__rename_column.sql migration script across files.",
+            "after_source": "public class Entity {}"
+        }
+        res = run_fix_agent_for_finding(
+            finding=finding,
+            backend="transformers",
+            loaded_model=mock_model,
+            tokenizer=MagicMock()
+        )
+        self.assertEqual(res["fix_status"], "skipped")
+        self.assertEqual(res["skip_reason"], "multi_file_not_supported")
+        mock_model.generate.assert_not_called()
+
+    def test_generated_source_protobuf_and_antlr_skip_with_zero_model_calls(self):
+        from unittest.mock import MagicMock
+        from fix_agent import run_fix_agent_for_finding
+
+        # 1. Path-based proto
+        mock_model = MagicMock()
+        finding_proto_path = {
+            "candidate_id": "gen-proto",
+            "decision": "ACCEPT",
+            "source_reviewer": "maintainability",
+            "file": "src/main/java/com/example/proto/GeneratedUserProto.java",
+            "line": 30,
+            "problem": "Unused field in proto stub.",
+            "after_source": "package com.example.proto;\npublic class GeneratedUserProto {}"
+        }
+        res1 = run_fix_agent_for_finding(
+            finding=finding_proto_path,
+            backend="transformers",
+            loaded_model=mock_model,
+            tokenizer=MagicMock()
+        )
+        self.assertEqual(res1["fix_status"], "skipped")
+        self.assertEqual(res1["skip_reason"], "unsupported_file_type")
+        mock_model.generate.assert_not_called()
+
+        # 2. Header-based generated source
+        mock_model2 = MagicMock()
+        finding_gen_header = {
+            "candidate_id": "gen-hdr",
+            "decision": "ACCEPT",
+            "source_reviewer": "maintainability",
+            "file": "src/main/java/com/example/parser/CustomLexer.java",
+            "line": 12,
+            "problem": "Dead variable in lexer.",
+            "after_source": "// Generated from Custom.g4 by ANTLR 4.9.2\npackage com.example.parser;\npublic class CustomLexer {}"
+        }
+        res2 = run_fix_agent_for_finding(
+            finding=finding_gen_header,
+            backend="transformers",
+            loaded_model=mock_model2,
+            tokenizer=MagicMock()
+        )
+        self.assertEqual(res2["fix_status"], "skipped")
+        self.assertEqual(res2["skip_reason"], "unsupported_file_type")
+        mock_model2.generate.assert_not_called()
+
+    def test_unsupported_non_java_files_skip_with_zero_model_calls(self):
+        from unittest.mock import MagicMock
+        from fix_agent import run_fix_agent_for_finding
+
+        for ext in ["docker-compose.yml", "pom.xml", "build.gradle", "schema.sql", "application.properties"]:
+            mock_model = MagicMock()
+            finding = {
+                "candidate_id": f"non-java-{ext}",
+                "decision": "ACCEPT",
+                "source_reviewer": "maintainability",
+                "file": ext,
+                "line": 1,
+                "problem": "Configuration mismatch.",
+                "after_source": "dummy content"
+            }
+            res = run_fix_agent_for_finding(
+                finding=finding,
+                backend="transformers",
+                loaded_model=mock_model,
+                tokenizer=MagicMock()
+            )
+            self.assertEqual(res["fix_status"], "skipped")
+            self.assertEqual(res["skip_reason"], "unsupported_file_type")
+            mock_model.generate.assert_not_called()
+
+    def test_normal_java_source_not_falsely_skipped(self):
+        from fix_eligibility import check_fix_eligibility
+
+        # 1. Normal protocol handler class (package or class contains 'protocol', but is normal user code)
+        finding_normal = {
+            "decision": "ACCEPT",
+            "source_reviewer": "correctness_logic",
+            "file": "src/main/java/com/example/protocol/NetworkProtocolHandler.java",
+            "line": 15,
+            "problem": "Inverted boolean comparison in packet validator.",
+            "after_source": "package com.example.protocol;\npublic class NetworkProtocolHandler {}"
+        }
+        res1 = check_fix_eligibility(finding_normal, file_content=finding_normal["after_source"])
+        self.assertTrue(res1["eligible"])
+        self.assertEqual(res1["reason"], "eligible_for_fix")
+
+        # 2. Operator precedence finding with phrasing 'missing parentheses'
+        finding_precedence = {
+            "decision": "ACCEPT",
+            "source_reviewer": "correctness_logic",
+            "file": "src/main/java/com/example/math/LerpCalculator.java",
+            "line": 5,
+            "problem": "Missing parentheses in lerp formula causing wrong arithmetic precedence.",
+            "after_source": "package com.example.math;\npublic class LerpCalculator {}"
+        }
+        res2 = check_fix_eligibility(finding_precedence, file_content=finding_precedence["after_source"])
+        self.assertTrue(res2["eligible"])
+        self.assertEqual(res2["reason"], "eligible_for_fix")
+
+
 if __name__ == "__main__":
     unittest.main()
+

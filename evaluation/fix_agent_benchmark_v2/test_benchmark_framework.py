@@ -27,6 +27,8 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 if str(FIX_V1_DIR) not in sys.path:
     sys.path.insert(0, str(FIX_V1_DIR))
+if str(BENCHMARK_DIR) not in sys.path:
+    sys.path.insert(0, str(BENCHMARK_DIR))
 
 from semantic_oracle import (
     evaluate_semantic_correctness,

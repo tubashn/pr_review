@@ -105,7 +105,6 @@ def run_evaluation(
             if after_path.exists():
                 expected_after_text = after_path.read_text(encoding="utf-8")
 
-        # Format finding dictionary for Fix Agent
         finding = {
             "candidate_id": sid,
             "decision": "ACCEPT",
@@ -115,7 +114,10 @@ def run_evaluation(
             "line": sc["line"],
             "problem": sc["problem"],
             "code_snippet": sc.get("evidence", ""),
-            "after_source": before_text
+            "after_source": before_text,
+            "finding_type": sc.get("finding_type", "presence"),
+            "context_scope": sc.get("context_scope", "single_method"),
+            "scope": sc.get("context_scope", "single_method")
         }
 
         print(f"[{idx}/{len(selected_scenarios)}] Evaluating {sid}: {title} ({role})...")

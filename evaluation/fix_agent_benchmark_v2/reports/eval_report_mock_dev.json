@@ -7,19 +7,19 @@
     "eligible_count": 38,
     "ineligible_count": 18,
     "eligibility_accuracy": {
-      "passed": 48,
+      "passed": 52,
       "total": 56,
-      "rate": 0.8571428571428571
+      "rate": 0.9285714285714286
     },
     "safe_skip_rate": {
-      "passed": 10,
+      "passed": 14,
       "total": 18,
-      "rate": 0.5555555555555556
+      "rate": 0.7777777777777778
     },
     "unsafe_prevention_rate": {
-      "passed": 16,
+      "passed": 18,
       "total": 18,
-      "rate": 0.8888888888888888
+      "rate": 1.0
     },
     "critical_gate_escape_count": 0,
     "mechanical_success": {
@@ -62,8 +62,8 @@
     "old_text_not_found": 5,
     "structural_sanity_failed": 5,
     "no_op_fix": 2,
-    "success_safe_skip": 10,
-    "eligibility_unsafe_generate": 8
+    "success_safe_skip": 14,
+    "eligibility_unsafe_generate": 4
   },
   "category_breakdown": {
     "maintainability": {
@@ -73,8 +73,8 @@
       "mechanical_success": 13,
       "canonical_match": 0,
       "semantic_accepted": 0,
-      "safe_skips": 3,
-      "unsafe_prevented": 7
+      "safe_skips": 5,
+      "unsafe_prevented": 9
     },
     "correctness_logic": {
       "total": 25,
@@ -83,7 +83,7 @@
       "mechanical_success": 13,
       "canonical_match": 0,
       "semantic_accepted": 0,
-      "safe_skips": 4,
+      "safe_skips": 6,
       "unsafe_prevented": 6
     },
     "security_validation": {
@@ -112,7 +112,7 @@
       "ineligible": 9,
       "mechanical_success": 9,
       "semantic_accepted": 0,
-      "safe_skips": 6
+      "safe_skips": 7
     },
     "HARD": {
       "total": 14,
@@ -120,7 +120,7 @@
       "ineligible": 9,
       "mechanical_success": 4,
       "semantic_accepted": 0,
-      "safe_skips": 4
+      "safe_skips": 7
     }
   },
   "complexity_breakdown": {
