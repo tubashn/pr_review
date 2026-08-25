@@ -31,7 +31,7 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "mechanical_success": false,
+      "mechanical_success": true,
       "canonical_source_match": false,
       "token_equivalent": false,
       "oracle_applicable": false,
@@ -105,7 +105,7 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "mechanical_success": false,
+      "mechanical_success": true,
       "canonical_source_match": false,
       "token_equivalent": false,
       "oracle_applicable": false,
@@ -142,7 +142,7 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "mechanical_success": false,
+      "mechanical_success": true,
       "canonical_source_match": false,
       "token_equivalent": false,
       "oracle_applicable": true,
@@ -179,7 +179,7 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "mechanical_success": false,
+      "mechanical_success": true,
       "canonical_source_match": false,
       "token_equivalent": false,
       "oracle_applicable": false,
@@ -216,7 +216,7 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "mechanical_success": false,
+      "mechanical_success": true,
       "canonical_source_match": false,
       "token_equivalent": false,
       "oracle_applicable": false,
@@ -290,7 +290,7 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "mechanical_success": false,
+      "mechanical_success": true,
       "canonical_source_match": false,
       "token_equivalent": false,
       "oracle_applicable": false,
@@ -327,7 +327,7 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "mechanical_success": false,
+      "mechanical_success": true,
       "canonical_source_match": false,
       "token_equivalent": false,
       "oracle_applicable": false,
@@ -401,7 +401,7 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "mechanical_success": false,
+      "mechanical_success": true,
       "canonical_source_match": false,
       "token_equivalent": false,
       "oracle_applicable": false,
@@ -475,7 +475,7 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "mechanical_success": false,
+      "mechanical_success": true,
       "canonical_source_match": false,
       "token_equivalent": false,
       "oracle_applicable": false,
@@ -512,7 +512,7 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "mechanical_success": false,
+      "mechanical_success": true,
       "canonical_source_match": false,
       "token_equivalent": false,
       "oracle_applicable": false,
@@ -586,7 +586,7 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "mechanical_success": false,
+      "mechanical_success": true,
       "canonical_source_match": false,
       "token_equivalent": false,
       "oracle_applicable": false,
@@ -623,7 +623,7 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "mechanical_success": false,
+      "mechanical_success": true,
       "canonical_source_match": false,
       "token_equivalent": false,
       "oracle_applicable": false,
@@ -697,7 +697,7 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "mechanical_success": false,
+      "mechanical_success": true,
       "canonical_source_match": false,
       "token_equivalent": false,
       "oracle_applicable": false,
@@ -771,7 +771,7 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "mechanical_success": false,
+      "mechanical_success": true,
       "canonical_source_match": false,
       "token_equivalent": false,
       "oracle_applicable": false,
@@ -882,7 +882,7 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "mechanical_success": false,
+      "mechanical_success": true,
       "canonical_source_match": false,
       "token_equivalent": false,
       "oracle_applicable": false,
@@ -956,7 +956,7 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "mechanical_success": false,
+      "mechanical_success": true,
       "canonical_source_match": false,
       "token_equivalent": false,
       "oracle_applicable": false,
@@ -1067,7 +1067,7 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "mechanical_success": false,
+      "mechanical_success": true,
       "canonical_source_match": false,
       "token_equivalent": false,
       "oracle_applicable": false,
@@ -1104,7 +1104,7 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "mechanical_success": false,
+      "mechanical_success": true,
       "canonical_source_match": false,
       "token_equivalent": false,
       "oracle_applicable": false,
@@ -1141,7 +1141,7 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "mechanical_success": false,
+      "mechanical_success": true,
       "canonical_source_match": false,
       "token_equivalent": false,
       "oracle_applicable": false,
@@ -1178,7 +1178,7 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "mechanical_success": false,
+      "mechanical_success": true,
       "canonical_source_match": false,
       "token_equivalent": false,
       "oracle_applicable": false,
@@ -1215,7 +1215,7 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "mechanical_success": false,
+      "mechanical_success": true,
       "canonical_source_match": false,
       "token_equivalent": false,
       "oracle_applicable": false,
@@ -1252,7 +1252,7 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "mechanical_success": false,
+      "mechanical_success": true,
       "canonical_source_match": false,
       "token_equivalent": false,
       "oracle_applicable": false,
@@ -1289,7 +1289,7 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "mechanical_success": false,
+      "mechanical_success": true,
       "canonical_source_match": false,
       "token_equivalent": false,
       "oracle_applicable": false,
@@ -1309,24 +1309,24 @@
       "fix_complexity": "single_line",
       "alternative_valid_fix": false,
       "eligibility_expected": true,
-      "eligibility_actual": false,
-      "eligibility_correct": false,
+      "eligibility_actual": true,
+      "eligibility_correct": true,
       "expected_fix_status": "generated",
-      "actual_fix_status": "skipped",
-      "skip_reason": "absence_type_not_auto_fixed",
+      "actual_fix_status": "generated",
+      "skip_reason": null,
       "rejection_reason": null,
-      "diff": "",
-      "old_text": "",
-      "new_text": "",
-      "match_mode": null,
+      "diff": "--- a/src/main/java/com/example/math/LerpCalculator.java\n+++ b/src/main/java/com/example/math/LerpCalculator.java\n@@ -2,6 +2,6 @@\n \n public class LerpCalculator {\n     public double lerp(double start, double end, double t) {\n-        return start + end - start * t;\n+        // fixed: return start + end - start * t;\n     }\n }",
+      "old_text": "return start + end - start * t;",
+      "new_text": "// fixed: return start + end - start * t;",
+      "match_mode": "exact",
       "validation": {
-        "unified_diff_valid": false,
-        "path_match": false,
-        "size_within_limit": false,
-        "apply_check": false,
-        "structural_sanity": false
+        "unified_diff_valid": true,
+        "path_match": true,
+        "size_within_limit": true,
+        "apply_check": true,
+        "structural_sanity": true
       },
-      "mechanical_success": false,
+      "mechanical_success": true,
       "canonical_source_match": false,
       "token_equivalent": false,
       "oracle_applicable": false,
@@ -1334,8 +1334,8 @@
       "semantic_match": false,
       "semantic_match_mode": null,
       "semantic_success": false,
-      "failure_type": "eligibility_false_skip",
-      "failure_subtype": "eligibility_false_skip_absence_type_not_auto_fixed",
+      "failure_type": "mechanical_failure",
+      "failure_subtype": "mechanical_failure",
       "extra_changed_lines": 0
     },
     {
@@ -1363,7 +1363,7 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "mechanical_success": false,
+      "mechanical_success": true,
       "canonical_source_match": false,
       "token_equivalent": false,
       "oracle_applicable": false,
@@ -1400,7 +1400,7 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "mechanical_success": false,
+      "mechanical_success": true,
       "canonical_source_match": false,
       "token_equivalent": false,
       "oracle_applicable": false,

@@ -807,7 +807,7 @@
       "fix_complexity": "single_line",
       "file_path": "src/main/java/com/example/math/LerpCalculator.java",
       "line": 5,
-      "problem": "Missing parentheses in lerp formula `start + end - start * t` calculates `(end - (start * t))`.",
+      "problem": "Incorrect operator precedence in linear interpolation formula: (start + end - start * t) evaluated without proper grouping parentheses.",
       "evidence": "return start + end - start * t;",
       "context_scope": "single_method",
       "source_fixture": "fixtures/FB2-036/before.java",

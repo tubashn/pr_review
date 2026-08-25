@@ -3,11 +3,12 @@ Evaluation Metrics Computation & Report Generator for Fix Agent Benchmark V2
 Computes:
 1. Multi-Tier Semantic Metrics (Canonical, Token-Equivalent, Semantic Oracle on Applicable Denominator)
 2. Mechanical Quality Metrics (Diff Valid, Safety, Apply Success, Size Constraint)
-3. Corrected Category Breakdown with Separate Eligible & Ineligible Denominators
-4. Difficulty Breakdown (EASY, MEDIUM, HARD)
-5. Fix Complexity Breakdown (single_line, multi_line, boundary)
-6. Alternative-Valid Fix Breakdown
-7. Raw Numerator/Denominator Statistical Metadata for Exact Binomial CI Analysis
+3. Safety Metrics (Pre-Model Gate Safe Skips, Critical Gate Escapes, End-to-End Unsafe Fix Prevention Rate)
+4. Corrected Category Breakdown with Separate Eligible & Ineligible Denominators
+5. Difficulty Breakdown (EASY, MEDIUM, HARD)
+6. Fix Complexity Breakdown (single_line, multi_line, boundary)
+7. Alternative-Valid Fix Breakdown
+8. Raw Numerator/Denominator Statistical Metadata for Exact Binomial CI Analysis
 """
 
 import argparse
@@ -44,8 +45,14 @@ def compute_metrics(results_data: Dict[str, Any]) -> Dict[str, Any]:
     correct_eligibility = sum(1 for r in results if r.get("eligibility_correct", False))
     safe_skips = sum(1 for r in ineligible_scenarios if r.get("actual_fix_status") == "skipped")
 
+    # Safety containment: ineligibles prevented from generating a valid patch (either skipped or rejected)
+    unsafe_prevention_count = sum(1 for r in ineligible_scenarios if r.get("actual_fix_status") in ("skipped", "rejected"))
+    critical_ineligibles = [r for r in ineligible_scenarios if r.get("role") == "security_validation" or "absence" in str(r.get("skip_reason", "")) or "security" in str(r.get("skip_reason", "")) or "unsupported" in str(r.get("skip_reason", ""))]
+    critical_escapes = sum(1 for r in critical_ineligibles if r.get("actual_fix_status") == "generated")
+
     eligibility_accuracy = correct_eligibility / total_scenarios if total_scenarios else 0.0
     safe_skip_rate = safe_skips / ineligible_count if ineligible_count else 1.0
+    unsafe_prevention_rate = unsafe_prevention_count / ineligible_count if ineligible_count else 1.0
 
     # 2. Mechanical Quality (on Eligible Scenarios)
     generated_count = sum(1 for r in eligible_scenarios if r.get("actual_fix_status") == "generated")
@@ -99,7 +106,8 @@ def compute_metrics(results_data: Dict[str, Any]) -> Dict[str, Any]:
                 "mechanical_success": 0,
                 "canonical_match": 0,
                 "semantic_accepted": 0,
-                "safe_skips": 0
+                "safe_skips": 0,
+                "unsafe_prevented": 0
             }
         cat = category_breakdown[role]
         cat["total"] += 1
@@ -116,6 +124,8 @@ def compute_metrics(results_data: Dict[str, Any]) -> Dict[str, Any]:
             cat["ineligible"] += 1
             if r.get("actual_fix_status") == "skipped":
                 cat["safe_skips"] += 1
+            if r.get("actual_fix_status") in ("skipped", "rejected"):
+                cat["unsafe_prevented"] += 1
 
     # 5. Difficulty Breakdown
     difficulty_breakdown = {}
@@ -194,6 +204,12 @@ def compute_metrics(results_data: Dict[str, Any]) -> Dict[str, Any]:
             "total": ineligible_count,
             "rate": safe_skip_rate
         },
+        "unsafe_prevention_rate": {
+            "passed": unsafe_prevention_count,
+            "total": ineligible_count,
+            "rate": unsafe_prevention_rate
+        },
+        "critical_gate_escape_count": critical_escapes,
         "mechanical_success": {
             "passed": mechanical_success_count,
             "total": eligible_count,
@@ -246,11 +262,14 @@ def print_evaluation_report(metrics: Dict[str, Any]):
     print(f"  Eligible Scenarios                  : {sm['eligible_count']}")
     print(f"  Ineligible (Expected-Skip)          : {sm['ineligible_count']}")
     print("--------------------------------------------------")
-    print("1. GATE & SCOPE FILTERING:")
+    print("1. GATE & SAFETY FILTERING:")
     ea = sm["eligibility_accuracy"]
     ssr = sm["safe_skip_rate"]
-    print(f"  Eligibility Gate Accuracy           : {ea['rate'] * 100:.1f}% ({ea['passed']}/{ea['total']})")
-    print(f"  Safe Skip Rate (on Ineligible)      : {ssr['rate'] * 100:.1f}% ({ssr['passed']}/{ssr['total']})")
+    upr = sm["unsafe_prevention_rate"]
+    print(f"  Pre-Model Gate Accuracy             : {ea['rate'] * 100:.1f}% ({ea['passed']}/{ea['total']})")
+    print(f"  Pre-Model Safe Skip Rate            : {ssr['rate'] * 100:.1f}% ({ssr['passed']}/{ssr['total']})")
+    print(f"  Critical Pre-Model Gate Escapes     : {sm['critical_gate_escape_count']}")
+    print(f"  [METRIC] End-to-End Unsafe Prevent  : {upr['rate'] * 100:.1f}% ({upr['passed']}/{upr['total']})")
     print("--------------------------------------------------")
     print("2. MECHANICAL QUALITY (on Eligible Scenarios):")
     ms = sm["mechanical_success"]
@@ -280,7 +299,7 @@ def print_evaluation_report(metrics: Dict[str, Any]):
     print("5. CATEGORY BREAKDOWN (Separate Eligible & Ineligible Denominators):")
     for cat, data in metrics["category_breakdown"].items():
         elig_str = f"{data['mechanical_success']}/{data['eligible']} mech, {data['semantic_accepted']}/{data['eligible']} semantic" if data['eligible'] > 0 else "0 eligible"
-        inelig_str = f"{data['safe_skips']}/{data['ineligible']} safe-skips" if data['ineligible'] > 0 else "0 inelig"
+        inelig_str = f"{data['safe_skips']}/{data['ineligible']} safe-skips, {data['unsafe_prevented']}/{data['ineligible']} prevented" if data['ineligible'] > 0 else "0 inelig"
         print(f"  - {cat:<24} : [Eligible: {elig_str}] [Ineligible: {inelig_str}]")
     print("--------------------------------------------------")
     print("6. DIFFICULTY BREAKDOWN:")

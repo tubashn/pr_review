@@ -226,12 +226,15 @@ def run_benchmark(
                         failure_type = "unknown"
                         failure_subtype = "no_expected_fixture"
 
-        mechanical_success = (
+        mechanical_success = bool(
             is_elig_exp
             and elig_actual
             and actual_status == "generated"
-            and validation.get("overall_valid", False)
-            and validation.get("apply_check", False)
+            and validation.get("unified_diff_valid")
+            and validation.get("path_match")
+            and validation.get("size_within_limit")
+            and validation.get("apply_check")
+            and validation.get("structural_sanity")
         )
 
         item_result = {
