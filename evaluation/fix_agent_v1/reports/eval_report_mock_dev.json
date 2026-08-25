@@ -11,48 +11,45 @@
     "eligible_size_safety_rate": 1.0,
     "eligible_apply_success_rate": 1.0,
     "eligible_mechanical_success_rate": 1.0,
-    "generated_diff_valid_rate": 1.0,
-    "generated_apply_success_rate": 1.0,
-    "eligible_ground_truth_match_rate": 0.7333,
-    "strict_overall_success_rate": 0.7333,
+    "canonical_source_match_rate": 0.7333,
+    "token_equivalent_match_rate": 0.9333,
+    "deterministic_semantic_oracle_pass_rate": 0.9333,
+    "semantic_accepted_fix_rate": 0.9333,
+    "semantic_review_required_count": 1,
+    "confirmed_wrong_fix_count": 0,
     "average_extra_changed_lines": 0.2
   },
+  "success_mode_breakdown": {
+    "canonical": 11,
+    "token_equivalent": 3,
+    "semantic_oracle": 0,
+    "semantic_review_required": 1,
+    "wrong_fix": 0
+  },
   "taxonomy": {
-    "success": 18,
-    "wrong_fix": 4
+    "success_canonical": 11,
+    "success_token_equivalent": 3,
+    "semantic_review_required": 1,
+    "success_safe_skip": 7
   },
   "category_breakdown": {
     "maintainability": {
       "total": 10,
       "mechanical": 8,
-      "semantic": 5
+      "canonical": 5,
+      "semantic_accepted": 8
     },
     "correctness_logic": {
       "total": 10,
       "mechanical": 7,
-      "semantic": 6
+      "canonical": 6,
+      "semantic_accepted": 6
     },
     "security_validation": {
       "total": 2,
       "mechanical": 0,
-      "semantic": 0
-    }
-  },
-  "difficulty_breakdown": {
-    "EASY": {
-      "total": 11,
-      "mechanical": 7,
-      "semantic": 6
-    },
-    "MEDIUM": {
-      "total": 8,
-      "mechanical": 6,
-      "semantic": 3
-    },
-    "HARD": {
-      "total": 3,
-      "mechanical": 2,
-      "semantic": 2
+      "canonical": 0,
+      "semantic_accepted": 0
     }
   }
 }

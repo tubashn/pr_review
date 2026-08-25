@@ -339,18 +339,16 @@ Fix Agent varsayılan olarak **KAPALIDIR** (`PR_REVIEW_FIX_AGENT_ENABLED=false`)
 
 ## Fix Agent Evaluation Harness (`evaluation/fix_agent_v1/`)
 
-Fix Agent V2'nin mekanik güvenliğini (grounding, valid diff, in-memory apply, Java sanity) ve beklenen kod durumuna uygunluğunu (semantic ground-truth match) ölçmek için bağımsız, sentetik ve deterministik bir değerlendirme altyapısıdır.
+Fix Agent V2'nin mekanik güvenliğini (grounding, valid diff, in-memory apply, Java sanity) ve çok katmanlı semantik doğruluğunu (Canonical Source Match, Java Token Equivalence, Deterministic Semantic Oracle) ölçmek için bağımsız, sentetik ve deterministik bir değerlendirme altyapısıdır.
 
-### 1. Neyi Ölçer ve Neyi Ölçmez?
-* **Neyi Ölçer?**:
-  - **Mekanik Kalite (Mechanical Success)**: `old_text` exact grounding, path safety, diff geçerliliği, <= 20 satır sınırı, in-memory apply, Java yapısal dengesi.
-  - **Semantik Kalite (Semantic Success)**: Uygulanan kodun `expected_after.java` ile tam eşleşmesi.
-  - **Strict Overall Success**: Mekanik başarı + Semantik ground truth eşleşmesi.
-  - **Güvenli Skip Oranı**: Güvenlik ve eksik kod gibi kapsam dışı senaryoların güvenle atlanması.
-* **Neyi Ölçmez?**:
-  - Tam proje Maven/Gradle derleme süreci (javac/classpath).
-  - Maven unit/entegrasyon test regresyonları.
-  - Runtime uygulama davranış garantisi.
+### 1. Çok Katmanlı Doğruluk Metrikleri
+* **Mekanik Kalite (Mechanical Success)**: `old_text` exact grounding, path safety, diff geçerliliği, <= 20 satır sınırı, in-memory apply, Java yapısal dengesi.
+* **Tier 1 - Canonical Source Match**: `expected_after.java` ile tam/whitespace-normalized metin eşleşmesi.
+* **Tier 2 - Java Token Equivalence**: Java sözcük (lexical) token akışı eşleşmesi (boşluk ve satır başı/sonu farklarını tolere eder; string literal ve operatörleri korur).
+* **Tier 3 - Deterministic Semantic Oracle**: Benchmark tanımlı geçerli alternatif sentaks/matematiksel ifadelerin kabulü (örn. eşdeğer double cast ifadeleri).
+* **Semantic Accepted Fix Rate**: Mekanik Başarı VE (Canonical VEYA Token Equivalent VEYA Semantic Oracle).
+* **Semantic Review Required**: Mekanik olarak doğru ancak benchmark'ta tanımlı olmayan alternatif fix'lerin manuel inceleme ayrımı.
+* **Güvenli Skip Oranı**: Güvenlik ve eksik kod gibi kapsam dışı senaryoların güvenle atlanması.
 
 ### 2. Dataset İstatistikleri ve HOLDOUT İzolasyonu
 * **Toplam Senaryo**: 30 sentetik Java senaryosu

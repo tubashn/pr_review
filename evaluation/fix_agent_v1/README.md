@@ -95,9 +95,9 @@ python evaluation/fix_agent_v1/evaluate_fix_results.py \
 
 ## 📐 Evaluation Metrics & Failure Taxonomy
 
-### Metric Separation (Mechanical vs Semantic)
+### Multi-Tier Metric Hierarchy
 
-| Category | Metric | Definition |
+| Tier / Category | Metric | Definition |
 |---|---|---|
 | **Gate** | **Eligibility Accuracy** | Rate of correct generate vs skip decisions across all scenarios. |
 | **Gate** | **Safe Skip Rate** | Percentage of ineligible scenarios correctly skipped. |
@@ -107,26 +107,27 @@ python evaluation/fix_agent_v1/evaluate_fix_results.py \
 | **Mechanical** | **Size Safety Rate** | Rate of patches respecting the <= 20 changed lines constraint. |
 | **Mechanical** | **Patch In-Memory Apply Rate** | Rate of patches cleanly applying in-memory to the source fixture. |
 | **Mechanical** | **Mechanical Success Rate** | All mechanical checks pass: grounded + valid diff + size safe + path safe + applied + structural sanity. |
-| **Semantic** | **Ground Truth Match Rate** | Rate of patched source matching `expected_after.java` (normalized whitespace). |
-| **Overall** | **Strict Overall Fix Success** | Percentage of eligible scenarios passing mechanical validation AND matching ground truth. |
+| **Semantic Tier 1** | **Canonical Source Match Rate** | Patched source matches canonical `expected_after.java` (normalized whitespace). |
+| **Semantic Tier 2** | **Token Equivalent Match Rate** | Java lexical token stream matches expected code (ignores formatting/blank lines but preserves literals and operators). |
+| **Semantic Tier 3** | **Semantic Oracle Pass Rate** | Satisfies benchmark-defined deterministic semantic oracle (e.g. alternative valid mathematical expressions). |
+| **Overall Semantic**| **Semantic Accepted Fix Rate** | Mechanical Success AND (Canonical Match OR Token Equivalent OR Semantic Oracle Pass). |
 
-### Failure Taxonomy
-* `eligibility_false_skip`: Eligible finding erroneously skipped by eligibility gate.
-* `eligibility_unsafe_generate`: Ineligible finding (e.g. security) erroneously accepted.
-* `model_skipped`: Model explicitly declined to produce a patch.
-* `invalid_model_schema`: Model output failed JSON schema parsing.
-* `old_text_not_found`: `old_text` was not found in target source code.
-* `ambiguous_old_text`: `old_text` occurred multiple times in target source code.
+### Failure & Success Taxonomy
+* `success_canonical`: Patch produced exact canonical source form matching `expected_after.java`.
+* `success_token_equivalent`: Patch produced identical Java lexical token sequence (e.g., blank-line differences).
+* `success_semantic_oracle`: Patch satisfied deterministic semantic postcondition (e.g., equivalent arithmetic expression).
+* `semantic_review_required`: Mechanical checks passed but patch is non-canonical, not token-equivalent, and lacks oracle.
+* `wrong_fix`: Patch produced confirmed incorrect code or failed semantic oracle.
+* `over_edit`: Patch achieved correct fix but modified unnecessary additional lines.
+* `apply_failed`: Synthesized patch failed in-memory application check.
+* `structural_invalid`: Patched Java source failed structural sanity check (unbalanced braces/parens).
+* `patch_too_large`: Generated patch exceeded 20 changed lines limit.
+* `unsafe_path`: Patch targeted wrong file or attempted path traversal.
 * `insufficient_target_context`: `old_text` consisted solely of delimiters/punctuation (e.g. `}`).
 * `target_location_mismatch`: `old_text` location in source was distant from verified finding line.
 * `target_not_modified`: `old_text` did not touch or overlap the verified problem evidence.
 * `no_op_fix`: `old_text` was identical to `new_text` (or only whitespace changes).
-* `patch_too_large`: Generated patch exceeded 20 changed lines limit.
-* `unsafe_path`: Patch targeted wrong file, attempted path traversal, or file outside PR scope.
-* `patch_generation_failed`: Backend model generation error.
-* `apply_failed`: Synthesized patch failed in-memory application check.
-* `structural_invalid`: Patched Java source failed structural sanity check (unbalanced braces/parens).
-* `wrong_fix`: Patch applied cleanly but resulting code did not match expected ground truth.
-* `over_edit`: Patch achieved correct fix but modified additional unnecessary lines.
-* `success`: Patch cleanly applied and perfectly matched expected ground truth.
+* `eligibility_false_skip`: Eligible finding erroneously skipped by eligibility gate.
+* `eligibility_unsafe_generate`: Ineligible finding erroneously accepted by eligibility gate.
+
 

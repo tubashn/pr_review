@@ -68,6 +68,32 @@
         "MEDIUM",
         "HARD"
       ]
+    },
+    "semantic_oracle": {
+      "type": "object",
+      "properties": {
+        "oracle_type": {
+          "type": "string"
+        },
+        "variants": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "required_tokens": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "forbidden_tokens": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
     }
   },
   "required": [

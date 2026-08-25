@@ -19,7 +19,16 @@ PR_REVIEW_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PR_REVIEW_ROOT))
 
 from fix_agent import run_fix_agent_for_finding
-from patch_validator import apply_unified_diff_to_text, validate_patch
+from patch_validator import (
+    validate_patch,
+    apply_unified_diff_to_text,
+    count_changed_lines
+)
+from semantic_oracle import (
+    evaluate_semantic_correctness,
+    normalize_source_code,
+    check_token_equivalence
+)
 
 EVAL_DIR = Path(__file__).resolve().parent
 SCENARIOS_FILE = EVAL_DIR / "scenarios.json"
@@ -146,7 +155,12 @@ def run_evaluation(
         else:
             elig_actual = True
 
-        ground_truth_match = False
+        canonical_source_match = False
+        token_equivalent = False
+        semantic_oracle_pass = False
+        semantic_match = False
+        semantic_match_mode = None
+        failure_subtype = None
         extra_changed_lines = 0
         failure_type = None
 
@@ -154,38 +168,54 @@ def run_evaluation(
             # Expected skip
             if actual_status == "skipped":
                 failure_type = "success"  # Safe skip
+                failure_subtype = "success_safe_skip"
             else:
                 failure_type = "eligibility_unsafe_generate"
+                failure_subtype = "eligibility_unsafe_generate"
         else:
             # Expected generated fix
             if not elig_actual:
                 failure_type = "eligibility_false_skip"
+                failure_subtype = "eligibility_false_skip"
             elif actual_status == "skipped":
                 failure_type = "model_skipped"
+                failure_subtype = "model_skipped"
             elif actual_status == "rejected":
                 failure_type = agent_failure or rejection_reason or "patch_generation_failed"
+                failure_subtype = failure_type
             elif actual_status == "generated":
-                # Check ground truth match
+                # Check patch application and semantic correctness tiers
                 if expected_after_text and diff_text:
                     app_ok, patched_code, app_err = apply_unified_diff_to_text(before_text, diff_text)
                     if not app_ok:
                         failure_type = "apply_failed"
+                        failure_subtype = "apply_failed"
                     else:
-                        norm_patched = normalize_source_code(patched_code)
-                        norm_expected = normalize_source_code(expected_after_text)
-                        if norm_patched == norm_expected:
-                            ground_truth_match = True
-                            failure_type = "success"
-                        else:
-                            failure_type = "wrong_fix"
+                        sem_res = evaluate_semantic_correctness(
+                            patched_code=patched_code,
+                            expected_code=expected_after_text,
+                            oracle_spec=sc.get("semantic_oracle")
+                        )
+                        canonical_source_match = sem_res["canonical_source_match"]
+                        token_equivalent = sem_res["token_equivalent"]
+                        semantic_oracle_pass = sem_res["semantic_oracle_pass"]
+                        semantic_match = sem_res["semantic_match"]
+                        semantic_match_mode = sem_res["semantic_match_mode"]
+                        failure_subtype = sem_res["failure_subtype"]
 
                         # Compute extra changed lines relative to minimal expected diff
                         diff_lines_gen = sum(1 for l in diff_text.splitlines() if (l.startswith("+") or l.startswith("-")) and not l.startswith("+++") and not l.startswith("---"))
                         exp_diff_lines = list(difflib.unified_diff(before_text.splitlines(), expected_after_text.splitlines()))
                         diff_lines_exp = sum(1 for l in exp_diff_lines if (l.startswith("+") or l.startswith("-")) and not l.startswith("+++") and not l.startswith("---"))
                         extra_changed_lines = max(0, diff_lines_gen - diff_lines_exp)
-                        if ground_truth_match and extra_changed_lines > 0:
-                            failure_type = "over_edit"
+
+                        if semantic_match:
+                            if extra_changed_lines > 0:
+                                failure_type = "over_edit"
+                            else:
+                                failure_type = "success"
+                        else:
+                            failure_type = failure_subtype
 
         mechanical_success = bool(
             actual_status == "generated" and
@@ -195,7 +225,7 @@ def run_evaluation(
             validation.get("apply_check") and
             validation.get("structural_sanity")
         )
-        semantic_success = bool(mechanical_success and ground_truth_match)
+        semantic_success = bool(mechanical_success and semantic_match)
 
         res_item = {
             "scenario_id": sid,
@@ -212,10 +242,16 @@ def run_evaluation(
             "match_mode": match_mode,
             "validation": validation,
             "mechanical_success": mechanical_success,
+            "canonical_source_match": canonical_source_match,
+            "token_equivalent": token_equivalent,
+            "semantic_oracle_pass": semantic_oracle_pass,
+            "semantic_match": semantic_match,
+            "semantic_match_mode": semantic_match_mode,
             "semantic_success": semantic_success,
-            "ground_truth_match": ground_truth_match,
+            "ground_truth_match": canonical_source_match,  # alias for backward compatibility
             "extra_changed_lines": extra_changed_lines,
             "failure_type": failure_type,
+            "failure_subtype": failure_subtype,
             "skip_reason": skip_reason,
             "rejection_reason": rejection_reason,
             "diff": diff_text,
