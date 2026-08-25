@@ -1,0 +1,160 @@
+{
+  "benchmark_version": "2.0",
+  "summary": {
+    "split": "DEV",
+    "backend": "Qwen/Qwen2.5-Coder-7B-Instruct",
+    "total_scenarios": 56,
+    "eligible_count": 38,
+    "ineligible_count": 18,
+    "eligibility_accuracy": {
+      "passed": 52,
+      "total": 56,
+      "rate": 0.9285714285714286
+    },
+    "safe_skip_rate": {
+      "passed": 14,
+      "total": 18,
+      "rate": 0.7777777777777778
+    },
+    "unsafe_prevention_rate": {
+      "passed": 18,
+      "total": 18,
+      "rate": 1.0
+    },
+    "critical_gate_escape_count": 0,
+    "mechanical_success": {
+      "passed": 33,
+      "total": 38,
+      "rate": 0.868421052631579
+    },
+    "canonical_source_match": {
+      "passed": 31,
+      "total": 38,
+      "rate": 0.8157894736842105
+    },
+    "token_equivalent_match": {
+      "passed": 31,
+      "total": 38,
+      "rate": 0.8157894736842105
+    },
+    "deterministic_semantic_oracle": {
+      "passed": 1,
+      "applicable": 4,
+      "rate": 0.25
+    },
+    "automated_semantic_accepted": {
+      "passed": 32,
+      "total": 38,
+      "rate": 0.8421052631578947
+    },
+    "semantic_review_required_count": 1,
+    "confirmed_wrong_fix_count": 0,
+    "success_modes": {
+      "canonical": 31,
+      "token_equivalent": 0,
+      "semantic_oracle": 1,
+      "semantic_review_required": 1,
+      "wrong_fix": 0
+    }
+  },
+  "taxonomy": {
+    "success_canonical": 31,
+    "success_semantic_oracle": 1,
+    "semantic_review_required": 1,
+    "old_text_not_found": 2,
+    "structural_sanity_failed": 1,
+    "insufficient_target_context": 1,
+    "model_skipped": 1,
+    "success_safe_skip": 14,
+    "success_validator_prevented": 4
+  },
+  "category_breakdown": {
+    "maintainability": {
+      "total": 28,
+      "eligible": 19,
+      "ineligible": 9,
+      "mechanical_success": 19,
+      "canonical_match": 17,
+      "semantic_accepted": 18,
+      "safe_skips": 5,
+      "unsafe_prevented": 9
+    },
+    "correctness_logic": {
+      "total": 25,
+      "eligible": 19,
+      "ineligible": 6,
+      "mechanical_success": 14,
+      "canonical_match": 14,
+      "semantic_accepted": 14,
+      "safe_skips": 6,
+      "unsafe_prevented": 6
+    },
+    "security_validation": {
+      "total": 3,
+      "eligible": 0,
+      "ineligible": 3,
+      "mechanical_success": 0,
+      "canonical_match": 0,
+      "semantic_accepted": 0,
+      "safe_skips": 3,
+      "unsafe_prevented": 3
+    }
+  },
+  "difficulty_breakdown": {
+    "EASY": {
+      "total": 17,
+      "eligible": 17,
+      "ineligible": 0,
+      "mechanical_success": 16,
+      "semantic_accepted": 15,
+      "safe_skips": 0
+    },
+    "MEDIUM": {
+      "total": 25,
+      "eligible": 16,
+      "ineligible": 9,
+      "mechanical_success": 16,
+      "semantic_accepted": 16,
+      "safe_skips": 7
+    },
+    "HARD": {
+      "total": 14,
+      "eligible": 5,
+      "ineligible": 9,
+      "mechanical_success": 1,
+      "semantic_accepted": 1,
+      "safe_skips": 7
+    }
+  },
+  "complexity_breakdown": {
+    "single_line": {
+      "eligible_count": 22,
+      "mechanical_success": 19,
+      "semantic_accepted": 18,
+      "review_required": 1,
+      "wrong_fix": 0
+    },
+    "multi_line": {
+      "eligible_count": 11,
+      "mechanical_success": 11,
+      "semantic_accepted": 11,
+      "review_required": 0,
+      "wrong_fix": 0
+    },
+    "boundary": {
+      "eligible_count": 5,
+      "mechanical_success": 3,
+      "semantic_accepted": 3,
+      "review_required": 0,
+      "wrong_fix": 0
+    }
+  },
+  "alternative_valid_breakdown": {
+    "total_alt_valid": 7,
+    "canonical_success": 4,
+    "token_success": 0,
+    "oracle_success": 1,
+    "review_required": 1,
+    "wrong_fix": 0
+  }
+}
