@@ -28,14 +28,14 @@
       "rate": 0.6842105263157895
     },
     "canonical_source_match": {
-      "passed": 0,
+      "passed": 3,
       "total": 38,
-      "rate": 0.0
+      "rate": 0.07894736842105263
     },
     "token_equivalent_match": {
-      "passed": 0,
+      "passed": 6,
       "total": 38,
-      "rate": 0.0
+      "rate": 0.15789473684210525
     },
     "deterministic_semantic_oracle": {
       "passed": 0,
@@ -43,27 +43,30 @@
       "rate": 0.0
     },
     "automated_semantic_accepted": {
-      "passed": 0,
+      "passed": 6,
       "total": 38,
-      "rate": 0.0
+      "rate": 0.15789473684210525
     },
-    "semantic_review_required_count": 0,
-    "confirmed_wrong_fix_count": 0,
+    "semantic_review_required_count": 19,
+    "confirmed_wrong_fix_count": 1,
     "success_modes": {
-      "canonical": 0,
-      "token_equivalent": 0,
+      "canonical": 3,
+      "token_equivalent": 3,
       "semantic_oracle": 0,
-      "semantic_review_required": 0,
-      "wrong_fix": 0
+      "semantic_review_required": 19,
+      "wrong_fix": 1
     }
   },
   "taxonomy": {
-    "mechanical_failure": 26,
+    "success_token_equivalent": 3,
     "old_text_not_found": 5,
+    "success_canonical": 3,
+    "wrong_fix": 1,
+    "semantic_review_required": 19,
     "structural_sanity_failed": 5,
     "no_op_fix": 2,
     "success_safe_skip": 14,
-    "eligibility_unsafe_generate": 4
+    "success_validator_prevented": 4
   },
   "category_breakdown": {
     "maintainability": {
@@ -71,8 +74,8 @@
       "eligible": 19,
       "ineligible": 9,
       "mechanical_success": 13,
-      "canonical_match": 0,
-      "semantic_accepted": 0,
+      "canonical_match": 2,
+      "semantic_accepted": 5,
       "safe_skips": 5,
       "unsafe_prevented": 9
     },
@@ -81,8 +84,8 @@
       "eligible": 19,
       "ineligible": 6,
       "mechanical_success": 13,
-      "canonical_match": 0,
-      "semantic_accepted": 0,
+      "canonical_match": 1,
+      "semantic_accepted": 1,
       "safe_skips": 6,
       "unsafe_prevented": 6
     },
@@ -103,7 +106,7 @@
       "eligible": 17,
       "ineligible": 0,
       "mechanical_success": 13,
-      "semantic_accepted": 0,
+      "semantic_accepted": 4,
       "safe_skips": 0
     },
     "MEDIUM": {
@@ -111,7 +114,7 @@
       "eligible": 16,
       "ineligible": 9,
       "mechanical_success": 9,
-      "semantic_accepted": 0,
+      "semantic_accepted": 2,
       "safe_skips": 7
     },
     "HARD": {
@@ -127,22 +130,22 @@
     "single_line": {
       "eligible_count": 22,
       "mechanical_success": 16,
-      "semantic_accepted": 0,
-      "review_required": 0,
+      "semantic_accepted": 5,
+      "review_required": 11,
       "wrong_fix": 0
     },
     "multi_line": {
       "eligible_count": 11,
       "mechanical_success": 5,
-      "semantic_accepted": 0,
-      "review_required": 0,
-      "wrong_fix": 0
+      "semantic_accepted": 1,
+      "review_required": 3,
+      "wrong_fix": 1
     },
     "boundary": {
       "eligible_count": 5,
       "mechanical_success": 5,
       "semantic_accepted": 0,
-      "review_required": 0,
+      "review_required": 5,
       "wrong_fix": 0
     }
   },
@@ -151,7 +154,7 @@
     "canonical_success": 0,
     "token_success": 0,
     "oracle_success": 0,
-    "review_required": 0,
-    "wrong_fix": 0
+    "review_required": 2,
+    "wrong_fix": 1
   }
 }

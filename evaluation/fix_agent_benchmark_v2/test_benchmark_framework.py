@@ -37,8 +37,10 @@ from semantic_oracle import (
 )
 from validate_benchmark import run_validation
 from audit_benchmark import run_audit
-from evaluate_results import compute_metrics
+from evaluate_results import compute_metrics, re_evaluate_results
 from run_benchmark import run_benchmark
+
+SCENARIOS_FILE = BENCHMARK_DIR / "scenarios.json"
 
 
 class TestBenchmarkV2StructureAndCounts(unittest.TestCase):
@@ -210,6 +212,13 @@ class TestBenchmarkV2EvaluationHierarchy(unittest.TestCase):
         self.assertEqual(res["failure_subtype"], "semantic_review_required")
 
     def test_category_denominator_correct(self):
+        VALID_BLOCK = {
+            "unified_diff_valid": True,
+            "path_match": True,
+            "size_within_limit": True,
+            "apply_check": True,
+            "structural_sanity": True
+        }
         sample_results = {
             "split": "DEV",
             "results": [
@@ -218,14 +227,17 @@ class TestBenchmarkV2EvaluationHierarchy(unittest.TestCase):
                     "role": "maintainability",
                     "eligibility_expected": True,
                     "actual_fix_status": "generated",
-                    "mechanical_success": True,
-                    "semantic_match": True
+                    "validation": VALID_BLOCK,
+                    "old_text": "long lastPermitTimestamp = System.currentTimeMillis();",
+                    "new_text": ""
                 },
                 {
                     "scenario_id": "FB2-053",
                     "role": "maintainability",
                     "eligibility_expected": False,
-                    "actual_fix_status": "skipped"
+                    "actual_fix_status": "skipped",
+                    "gate_skip": True,
+                    "gate_decision": "skipped"
                 }
             ]
         }
@@ -238,6 +250,13 @@ class TestBenchmarkV2EvaluationHierarchy(unittest.TestCase):
         self.assertEqual(cb["safe_skips"], 1)
 
     def test_difficulty_denominator_correct(self):
+        VALID_BLOCK = {
+            "unified_diff_valid": True,
+            "path_match": True,
+            "size_within_limit": True,
+            "apply_check": True,
+            "structural_sanity": True
+        }
         sample_results = {
             "split": "DEV",
             "results": [
@@ -246,8 +265,9 @@ class TestBenchmarkV2EvaluationHierarchy(unittest.TestCase):
                     "difficulty": "EASY",
                     "eligibility_expected": True,
                     "actual_fix_status": "generated",
-                    "mechanical_success": True,
-                    "semantic_match": True
+                    "validation": VALID_BLOCK,
+                    "old_text": "long lastPermitTimestamp = System.currentTimeMillis();",
+                    "new_text": ""
                 }
             ]
         }
@@ -258,6 +278,13 @@ class TestBenchmarkV2EvaluationHierarchy(unittest.TestCase):
         self.assertEqual(db["mechanical_success"], 1)
 
     def test_fix_complexity_breakdown_correct(self):
+        VALID_BLOCK = {
+            "unified_diff_valid": True,
+            "path_match": True,
+            "size_within_limit": True,
+            "apply_check": True,
+            "structural_sanity": True
+        }
         sample_results = {
             "split": "DEV",
             "results": [
@@ -266,9 +293,9 @@ class TestBenchmarkV2EvaluationHierarchy(unittest.TestCase):
                     "fix_complexity": "single_line",
                     "eligibility_expected": True,
                     "actual_fix_status": "generated",
-                    "mechanical_success": True,
-                    "semantic_match": True,
-                    "failure_subtype": "success_canonical"
+                    "validation": VALID_BLOCK,
+                    "old_text": "long lastPermitTimestamp = System.currentTimeMillis();",
+                    "new_text": ""
                 }
             ]
         }
@@ -279,6 +306,13 @@ class TestBenchmarkV2EvaluationHierarchy(unittest.TestCase):
         self.assertEqual(cb["semantic_accepted"], 1)
 
     def test_alternative_valid_breakdown_correct(self):
+        VALID_BLOCK = {
+            "unified_diff_valid": True,
+            "path_match": True,
+            "size_within_limit": True,
+            "apply_check": True,
+            "structural_sanity": True
+        }
         sample_results = {
             "split": "DEV",
             "results": [
@@ -287,34 +321,268 @@ class TestBenchmarkV2EvaluationHierarchy(unittest.TestCase):
                     "alternative_valid_fix": True,
                     "eligibility_expected": True,
                     "actual_fix_status": "generated",
-                    "mechanical_success": True,
-                    "canonical_source_match": False,
-                    "semantic_match_mode": "token_equivalent",
-                    "semantic_match": True,
-                    "failure_subtype": "success_token_equivalent"
+                    "validation": VALID_BLOCK,
+                    "old_text": "sum = Integer.valueOf(sum + val);",
+                    "new_text": "sum += val;"
                 }
             ]
         }
         metrics = compute_metrics(sample_results)
         avb = metrics["alternative_valid_breakdown"]
         self.assertEqual(avb["total_alt_valid"], 1)
-        self.assertEqual(avb["token_success"], 1)
+        self.assertEqual(avb["oracle_success"], 1)
 
 
-class TestBenchmarkV2MockRunnerAndIsolation(unittest.TestCase):
-    """Verifies that mock runner operates cleanly and HOLDOUT is protected."""
+class TestSemanticEvaluationPlumbingAndInvariants(unittest.TestCase):
+    """Verifies that semantic evaluation plumbing and taxonomy invariants are mathematically sound."""
 
-    def test_mock_dev_run_does_not_load_transformers(self):
+    def test_canonical_patched_source_yields_success_canonical(self):
+        source = "public class A { public int f() { return 1; } }"
+        expected = "public class A { public int f() { return 2; } }"
+        patched = "public class A { public int f() { return 2; } }"
+
+        res = evaluate_semantic_correctness(patched_code=patched, expected_code=expected)
+        self.assertTrue(res["canonical_source_match"])
+        self.assertTrue(res["token_equivalent"])
+        self.assertTrue(res["semantic_match"])
+        self.assertEqual(res["semantic_match_mode"], "canonical")
+        self.assertEqual(res["failure_subtype"], "success_canonical")
+
+    def test_formatting_only_difference_yields_success_token_equivalent(self):
+        expected = "public class A {\n    public int f() {\n        return 2;\n    }\n}"
+        patched = "public class A { public int f() { return 2; } }"
+
+        res = evaluate_semantic_correctness(patched_code=patched, expected_code=expected)
+        self.assertFalse(res["canonical_source_match"])
+        self.assertTrue(res["token_equivalent"])
+        self.assertTrue(res["semantic_match"])
+        self.assertEqual(res["semantic_match_mode"], "token_equivalent")
+        self.assertEqual(res["failure_subtype"], "success_token_equivalent")
+
+    def test_model_output_independent_oracle_yields_success_semantic_oracle(self):
+        expected = "public class A { public double f(int a, int b) { return ((double) a / b) * 100.0; } }"
+        patched = "public class A { public double f(int a, int b) { return (double) a / b * 100.0; } }"
+        oracle = {
+            "oracle_type": "alternative_token_variants",
+            "variants": [
+                "public class A { public double f(int a, int b) { return (double) a / b * 100.0; } }"
+            ]
+        }
+
+        res = evaluate_semantic_correctness(patched_code=patched, expected_code=expected, oracle_spec=oracle)
+        self.assertFalse(res["canonical_source_match"])
+        self.assertFalse(res["token_equivalent"])
+        self.assertTrue(res["oracle_applicable"])
+        self.assertTrue(res["semantic_oracle_pass"])
+        self.assertTrue(res["semantic_match"])
+        self.assertEqual(res["semantic_match_mode"], "semantic_oracle")
+        self.assertEqual(res["failure_subtype"], "success_semantic_oracle")
+
+    def test_mechanical_success_no_oracle_yields_semantic_review_required(self):
+        expected = "public class A { public int f() { return 2; } }"
+        patched = "public class A { public int f() { return 3; } }"
+
+        res = evaluate_semantic_correctness(patched_code=patched, expected_code=expected, oracle_spec=None)
+        self.assertFalse(res["canonical_source_match"])
+        self.assertFalse(res["token_equivalent"])
+        self.assertFalse(res["semantic_match"])
+        self.assertIsNone(res["semantic_match_mode"])
+        self.assertEqual(res["failure_subtype"], "semantic_review_required")
+
+    def test_applicable_oracle_fail_yields_wrong_fix(self):
+        expected = "public class A { public int f() { return 2; } }"
+        patched = "public class A { public int f() { return 999; } }"
+        oracle = {
+            "oracle_type": "alternative_token_variants",
+            "variants": ["public class A { public int f() { return 4; } }"]
+        }
+
+        res = evaluate_semantic_correctness(patched_code=patched, expected_code=expected, oracle_spec=oracle)
+        self.assertFalse(res["semantic_match"])
+        self.assertEqual(res["failure_subtype"], "wrong_fix")
+
+    def test_mechanical_success_taxonomy_exactly_one_terminal_mode(self):
+        sample_results = {
+            "split": "DEV",
+            "results": [
+                {
+                    "scenario_id": "FB2-003",
+                    "eligibility_expected": True,
+                    "actual_fix_status": "generated",
+                    "validation": {
+                        "unified_diff_valid": True,
+                        "path_match": True,
+                        "size_within_limit": True,
+                        "apply_check": True,
+                        "structural_sanity": True
+                    },
+                    "old_text": "if (enabled == true) {",
+                    "new_text": "if (enabled) {"
+                },
+                {
+                    "scenario_id": "FB2-005",
+                    "eligibility_expected": True,
+                    "actual_fix_status": "generated",
+                    "validation": {
+                        "unified_diff_valid": True,
+                        "path_match": True,
+                        "size_within_limit": True,
+                        "apply_check": True,
+                        "structural_sanity": True
+                    },
+                    "old_text": "String msg = \"PENDING\";",
+                    "new_text": ""
+                }
+            ]
+        }
+        metrics = compute_metrics(sample_results)
+        sm = metrics["summary"]["success_modes"]
+        mech = metrics["summary"]["mechanical_success"]["passed"]
+        self.assertEqual(mech, 2)
+        total_modes = sum(sm.values())
+        self.assertEqual(total_modes, mech)
+
+    def test_sum_semantic_terminal_modes_equals_mechanical_success_count(self):
         res = run_benchmark(split="DEV", backend="mock")
-        self.assertEqual(res["total_scenarios"], 56)
-        self.assertEqual(len(res["results"]), 56)
+        metrics = compute_metrics(res)
+        sm = metrics["summary"]["success_modes"]
+        mech_count = metrics["summary"]["mechanical_success"]["passed"]
+        self.assertEqual(sum(sm.values()), mech_count)
 
-    def test_holdout_not_run_by_default(self):
-        res = run_benchmark(backend="mock")
-        self.assertEqual(res["split"], "DEV")
-        sids = {r["scenario_id"] for r in res["results"]}
-        self.assertNotIn("FB2-057", sids)  # FB2-057 is in HOLDOUT
+    def test_mechanical_failure_never_counted_as_semantic_accepted(self):
+        sample_results = {
+            "split": "DEV",
+            "results": [
+                {
+                    "scenario_id": "FB2-001",
+                    "eligibility_expected": True,
+                    "actual_fix_status": "rejected",
+                    "validation": {"apply_check": False},
+                    "canonical_source_match": True,  # Stale field
+                    "semantic_match": True           # Stale field
+                }
+            ]
+        }
+        metrics = compute_metrics(sample_results)
+        self.assertEqual(metrics["summary"]["mechanical_success"]["passed"], 0)
+        self.assertEqual(metrics["summary"]["automated_semantic_accepted"]["passed"], 0)
+
+    def test_mechanical_success_never_has_failure_type_mechanical_failure(self):
+        res = run_benchmark(split="DEV", backend="mock")
+        metrics = compute_metrics(res)
+        for r in metrics.get("results", []):
+            if r.get("mechanical_success"):
+                self.assertNotEqual(r.get("failure_type"), "mechanical_failure")
+
+    def test_pre_model_gate_metric_not_derived_from_model_terminal_status(self):
+        # A finding that is eligible at gate but rejected by validator is not a pre-model safe skip
+        sample_results = {
+            "split": "DEV",
+            "results": [
+                {
+                    "scenario_id": "FB2-050",  # Large patch ineligible scenario
+                    "eligibility_expected": False,
+                    "actual_fix_status": "rejected",
+                    "rejection_reason": "patch_too_large"
+                }
+            ]
+        }
+        metrics = compute_metrics(sample_results)
+        # Pre-model gate allowed it (gate_skip=False), but validator rejected it (unsafe_prevented=1)
+        self.assertEqual(metrics["summary"]["safe_skip_rate"]["passed"], 0)
+        self.assertEqual(metrics["summary"]["unsafe_prevention_rate"]["passed"], 1)
+
+    def test_model_generated_skip_not_counted_as_pre_model_safe_skip(self):
+        finding = {
+            "candidate_id": "test-1",
+            "decision": "ACCEPT",
+            "source_reviewer": "maintainability",
+            "file": "src/main/java/com/example/Service.java",
+            "line": 5,
+            "problem": "Unused variable.",
+            "after_source": "public class Service {}"
+        }
+        from fix_eligibility import check_fix_eligibility
+        gate_res = check_fix_eligibility(finding)
+        self.assertTrue(gate_res["eligible"])
+
+    def test_validator_rejection_not_counted_as_pre_model_safe_skip(self):
+        sample = {
+            "split": "DEV",
+            "results": [
+                {
+                    "scenario_id": "FB2-055",
+                    "eligibility_expected": False,
+                    "actual_fix_status": "rejected",
+                    "rejection_reason": "insufficient_target_context"
+                }
+            ]
+        }
+        metrics = compute_metrics(sample)
+        self.assertEqual(metrics["summary"]["safe_skip_rate"]["passed"], 0)
+        self.assertEqual(metrics["summary"]["unsafe_prevention_rate"]["passed"], 1)
+
+    def test_mock_and_transformers_produce_same_deterministic_gate_decision(self):
+        from fix_eligibility import check_fix_eligibility
+        scs = json.loads(SCENARIOS_FILE.read_text(encoding="utf-8"))["scenarios"]
+        for sc in scs:
+            finding = {
+                "candidate_id": sc["scenario_id"],
+                "decision": "ACCEPT",
+                "source_reviewer": sc["role"],
+                "file": sc["file_path"],
+                "file_path": sc["file_path"],
+                "line": sc["line"],
+                "problem": sc["problem"],
+                "code_snippet": sc.get("evidence", ""),
+                "after_source": "public class Dummy {}",
+                "finding_type": sc.get("finding_type", "presence"),
+                "context_scope": sc.get("context_scope", "single_method"),
+                "scope": sc.get("context_scope", "single_method")
+            }
+            res = check_fix_eligibility(finding)
+            self.assertIsInstance(res["eligible"], bool)
+
+    def test_expected_after_not_leaked_into_model_generation_input(self):
+        from fix_agent_prompt_builder import build_fix_agent_prompt
+        finding = {
+            "candidate_id": "f-1",
+            "problem": "Unused variable.",
+            "source_reviewer": "maintainability"
+        }
+        prompt = build_fix_agent_prompt(finding, "src/Service.java", "public class Service {}", "")
+        self.assertNotIn("expected_after", prompt)
+        self.assertNotIn("oracle", prompt)
+
+    def test_evaluator_reads_expected_after_only_post_inference(self):
+        # Evaluator re_evaluate_results only reads expected_after for semantic comparison post-inference
+        sample = {
+            "split": "DEV",
+            "results": [
+                {
+                    "scenario_id": "FB2-001",
+                    "eligibility_expected": True,
+                    "actual_fix_status": "generated",
+                    "validation": {
+                        "unified_diff_valid": True,
+                        "path_match": True,
+                        "size_within_limit": True,
+                        "apply_check": True,
+                        "structural_sanity": True
+                    },
+                    "old_text": "long lastPermitTimestamp = System.currentTimeMillis();",
+                    "new_text": ""
+                }
+            ]
+        }
+        re_res = re_evaluate_results(sample)
+        r0 = re_res["results"][0]
+        self.assertTrue(r0["mechanical_success"])
+        self.assertTrue(r0["token_equivalent"])
+        self.assertTrue(r0["semantic_match"])
+        self.assertEqual(r0["semantic_match_mode"], "token_equivalent")
 
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -18,6 +18,21 @@ import sys
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+FIX_V1_DIR = REPO_ROOT / "evaluation" / "fix_agent_v1"
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+if str(FIX_V1_DIR) not in sys.path:
+    sys.path.insert(0, str(FIX_V1_DIR))
+
+from semantic_oracle import (
+    evaluate_semantic_correctness,
+    normalize_source_code,
+    check_token_equivalence
+)
+from patch_validator import apply_unified_diff_to_text
+from fix_eligibility import check_fix_eligibility
+
 BENCHMARK_DIR = Path(__file__).resolve().parent
 SCENARIOS_FILE = BENCHMARK_DIR / "scenarios.json"
 
@@ -29,10 +44,155 @@ def load_scenario_map() -> Dict[str, Any]:
     return {}
 
 
-def compute_metrics(results_data: Dict[str, Any]) -> Dict[str, Any]:
+def re_evaluate_results(results_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Offline re-evaluator for benchmark result records.
+    Ensures that pre-model gate decisions, mechanical validation, and semantic correctness
+    are cleanly evaluated using read-only scenario fixtures and frozen acceptance hierarchy.
+    """
+    scenario_map = load_scenario_map()
     results = results_data.get("results", [])
-    split = results_data.get("split", "DEV")
-    backend = results_data.get("backend", "unknown")
+    updated_results = []
+
+    for r in results:
+        sid = r.get("scenario_id")
+        sc = scenario_map.get(sid, {})
+        is_elig_exp = sc.get("eligibility_expected", r.get("eligibility_expected", True))
+        oracle_spec = sc.get("semantic_oracle", r.get("semantic_oracle"))
+
+        before_path = BENCHMARK_DIR / sc.get("source_fixture", "") if sc.get("source_fixture") else None
+        before_text = before_path.read_text(encoding="utf-8") if before_path and before_path.exists() else ""
+
+        expected_after_path = BENCHMARK_DIR / sc.get("expected_after_fixture", "") if sc.get("expected_after_fixture") else None
+        expected_after_text = expected_after_path.read_text(encoding="utf-8") if expected_after_path and expected_after_path.exists() else None
+
+        finding = {
+            "candidate_id": sid,
+            "decision": "ACCEPT",
+            "source_reviewer": sc.get("role", r.get("role")),
+            "file": sc.get("file_path", r.get("file_path", "")),
+            "file_path": sc.get("file_path", r.get("file_path", "")),
+            "line": sc.get("line", r.get("line", 1)),
+            "problem": sc.get("problem", r.get("problem", "")),
+            "code_snippet": sc.get("evidence", r.get("code_snippet", "")),
+            "after_source": before_text,
+            "finding_type": sc.get("finding_type", "presence"),
+            "context_scope": sc.get("context_scope", "single_method"),
+            "scope": sc.get("context_scope", "single_method")
+        }
+
+        # 1. Deterministic pre-model gate decision
+        gate_eval = check_fix_eligibility(finding, file_content=before_text)
+        gate_eligible = gate_eval["eligible"]
+        gate_reason = gate_eval["reason"]
+        model_invoked = bool(gate_eligible)
+
+        actual_status = r.get("actual_fix_status", "skipped")
+        validation = r.get("validation", {})
+        diff_text = r.get("diff", "")
+        old_text = r.get("old_text", "")
+        new_text = r.get("new_text", "")
+
+        is_mechanically_valid = bool(
+            actual_status == "generated"
+            and validation.get("unified_diff_valid")
+            and validation.get("path_match")
+            and validation.get("size_within_limit")
+            and validation.get("apply_check")
+            and validation.get("structural_sanity")
+        )
+
+        mechanical_success = bool(is_elig_exp and gate_eligible and is_mechanically_valid)
+
+        canonical_source_match = False
+        token_equivalent = False
+        oracle_applicable = bool(oracle_spec)
+        semantic_oracle_pass = False
+        semantic_match = False
+        semantic_match_mode = None
+        failure_subtype = None
+        failure_type = None
+
+        if not is_elig_exp:
+            if not gate_eligible:
+                failure_type = "success"
+                failure_subtype = "success_safe_skip"
+            elif actual_status == "rejected":
+                failure_type = "success"
+                failure_subtype = "success_validator_prevented"
+            else:
+                failure_type = "eligibility_unsafe_generate"
+                failure_subtype = "eligibility_unsafe_generate"
+        else:
+            if not gate_eligible:
+                failure_type = "eligibility_false_skip"
+                failure_subtype = f"eligibility_false_skip_{gate_reason}"
+            elif not is_mechanically_valid:
+                failure_type = r.get("rejection_reason") or r.get("failure_type") or "mechanical_failure"
+                failure_subtype = failure_type
+            else:
+                # Reconstruct patched text
+                patched_text = r.get("patched_source")
+                if not patched_text and diff_text and before_text:
+                    app_ok, app_patched, app_err = apply_unified_diff_to_text(before_text, diff_text)
+                    if app_ok:
+                        patched_text = app_patched
+
+                if not patched_text and old_text and before_text and old_text in before_text:
+                    patched_text = before_text.replace(old_text, new_text, 1)
+
+                if not patched_text:
+                    failure_type = "mechanical_failure"
+                    failure_subtype = "apply_failed"
+                elif expected_after_text is not None:
+                    sem_eval = evaluate_semantic_correctness(
+                        patched_code=patched_text,
+                        expected_code=expected_after_text,
+                        oracle_spec=oracle_spec
+                    )
+                    canonical_source_match = sem_eval["canonical_source_match"]
+                    token_equivalent = sem_eval["token_equivalent"]
+                    oracle_applicable = sem_eval["oracle_applicable"]
+                    semantic_oracle_pass = sem_eval["semantic_oracle_pass"]
+                    semantic_match = sem_eval["semantic_match"]
+                    semantic_match_mode = sem_eval["semantic_match_mode"]
+                    failure_subtype = sem_eval["failure_subtype"]
+                    failure_type = "success" if semantic_match else failure_subtype
+                else:
+                    failure_type = "unknown"
+                    failure_subtype = "no_expected_fixture"
+
+        item = dict(r)
+        item["eligibility_expected"] = is_elig_exp
+        item["eligibility_actual"] = gate_eligible
+        item["eligibility_correct"] = (gate_eligible == is_elig_exp)
+        item["gate_decision"] = "eligible" if gate_eligible else "skipped"
+        item["gate_skip"] = not gate_eligible
+        item["gate_reason"] = gate_reason
+        item["model_invoked"] = model_invoked
+        item["mechanical_success"] = mechanical_success
+        item["canonical_source_match"] = canonical_source_match
+        item["token_equivalent"] = token_equivalent
+        item["oracle_applicable"] = oracle_applicable
+        item["semantic_oracle_pass"] = semantic_oracle_pass
+        item["semantic_match"] = semantic_match
+        item["semantic_match_mode"] = semantic_match_mode
+        item["semantic_success"] = semantic_match
+        item["failure_type"] = failure_type
+        item["failure_subtype"] = failure_subtype
+        updated_results.append(item)
+
+    updated_data = dict(results_data)
+    updated_data["results"] = updated_results
+    return updated_data
+
+
+def compute_metrics(results_data: Dict[str, Any]) -> Dict[str, Any]:
+    # Ensure raw results have clean gate and semantic evaluation fields
+    processed_data = re_evaluate_results(results_data)
+    results = processed_data.get("results", [])
+    split = processed_data.get("split", "DEV")
+    backend = processed_data.get("backend", "unknown")
     total_scenarios = len(results)
 
     # 1. Gate & Scope
@@ -43,11 +203,11 @@ def compute_metrics(results_data: Dict[str, Any]) -> Dict[str, Any]:
     ineligible_count = len(ineligible_scenarios)
 
     correct_eligibility = sum(1 for r in results if r.get("eligibility_correct", False))
-    safe_skips = sum(1 for r in ineligible_scenarios if r.get("actual_fix_status") == "skipped")
+    safe_skips = sum(1 for r in ineligible_scenarios if r.get("gate_skip", False) or r.get("gate_decision") == "skipped")
 
     # Safety containment: ineligibles prevented from generating a valid patch (either skipped or rejected)
     unsafe_prevention_count = sum(1 for r in ineligible_scenarios if r.get("actual_fix_status") in ("skipped", "rejected"))
-    critical_ineligibles = [r for r in ineligible_scenarios if r.get("role") == "security_validation" or "absence" in str(r.get("skip_reason", "")) or "security" in str(r.get("skip_reason", "")) or "unsupported" in str(r.get("skip_reason", ""))]
+    critical_ineligibles = [r for r in ineligible_scenarios if r.get("role") == "security_validation" or "absence" in str(r.get("gate_reason", "")) or "security" in str(r.get("gate_reason", "")) or "unsupported" in str(r.get("gate_reason", ""))]
     critical_escapes = sum(1 for r in critical_ineligibles if r.get("actual_fix_status") == "generated")
 
     eligibility_accuracy = correct_eligibility / total_scenarios if total_scenarios else 0.0
@@ -325,6 +485,7 @@ def main():
     parser = argparse.ArgumentParser(description="Evaluate Fix Agent Benchmark V2 Results")
     parser.add_argument("results_file", type=str, help="Path to results JSON file")
     parser.add_argument("--output", type=str, default=None, help="Path to save evaluation report JSON")
+    parser.add_argument("--save-reevaluated", type=str, default=None, help="Path to save re-evaluated results JSON")
 
     args = parser.parse_args()
     res_path = Path(args.results_file)
@@ -333,9 +494,16 @@ def main():
         sys.exit(1)
 
     results_data = json.loads(res_path.read_text(encoding="utf-8"))
-    metrics = compute_metrics(results_data)
+    processed_data = re_evaluate_results(results_data)
+    metrics = compute_metrics(processed_data)
 
     print_evaluation_report(metrics)
+
+    if args.save_reevaluated:
+        save_p = Path(args.save_reevaluated)
+        save_p.parent.mkdir(parents=True, exist_ok=True)
+        save_p.write_text(json.dumps(processed_data, indent=2), encoding="utf-8")
+        print(f"Re-evaluated results saved to: {save_p}")
 
     report_p = args.output
     if not report_p:
@@ -353,3 +521,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

@@ -26,6 +26,7 @@ if str(FIX_V1_DIR) not in sys.path:
     sys.path.insert(0, str(FIX_V1_DIR))
 
 from fix_agent import run_fix_agent_for_finding
+from fix_eligibility import check_fix_eligibility
 from patch_validator import (
     validate_patch,
     apply_unified_diff_to_text,
@@ -141,6 +142,12 @@ def run_benchmark(
             "scope": sc.get("context_scope", "single_method")
         }
 
+        # 1. Deterministic pre-model gate evaluation
+        gate_eval = check_fix_eligibility(finding, file_content=before_text)
+        gate_eligible = gate_eval["eligible"]
+        gate_reason = gate_eval["reason"]
+        model_invoked = bool(gate_eligible)
+
         agent_output = run_fix_agent_for_finding(
             finding=finding,
             backend=backend,
@@ -163,18 +170,18 @@ def run_benchmark(
         rejection_reason = agent_output.get("rejection_reason")
         agent_failure = agent_output.get("failure_type")
 
-        # Eligibility actual assessment
-        if actual_status == "skipped" and skip_reason in (
-            "security_findings_not_auto_fixed",
-            "absence_type_not_auto_fixed",
-            "multi_file_not_supported",
-            "unsupported_file_type",
-            "expected_patch_too_large",
-            "unverified_or_rejected_finding"
-        ):
-            elig_actual = False
-        else:
-            elig_actual = True
+        elig_actual = gate_eligible
+
+        is_mechanically_valid = bool(
+            actual_status == "generated"
+            and validation.get("unified_diff_valid")
+            and validation.get("path_match")
+            and validation.get("size_within_limit")
+            and validation.get("apply_check")
+            and validation.get("structural_sanity")
+        )
+
+        mechanical_success = bool(is_elig_exp and gate_eligible and is_mechanically_valid)
 
         canonical_source_match = False
         token_equivalent = False
@@ -188,56 +195,54 @@ def run_benchmark(
 
         if not is_elig_exp:
             # Expected skip
-            if actual_status == "skipped":
+            if not gate_eligible:
                 failure_type = "success"
                 failure_subtype = "success_safe_skip"
+            elif actual_status == "rejected":
+                failure_type = "success"
+                failure_subtype = "success_validator_prevented"
             else:
                 failure_type = "eligibility_unsafe_generate"
                 failure_subtype = "eligibility_unsafe_generate"
         else:
             # Expected generate
-            if actual_status == "skipped":
+            if not gate_eligible:
                 failure_type = "eligibility_false_skip"
-                failure_subtype = f"eligibility_false_skip_{skip_reason}"
-            elif not validation.get("overall_valid", False):
-                failure_type = agent_failure or "mechanical_failure"
+                failure_subtype = f"eligibility_false_skip_{gate_reason}"
+            elif not is_mechanically_valid:
+                failure_type = agent_failure or rejection_reason or "mechanical_failure"
                 failure_subtype = rejection_reason or agent_failure or "mechanical_failure"
             else:
                 # Mechanical checks passed -> run frozen semantic evaluation
-                app_res = apply_unified_diff_to_text(before_text, diff_text)
-                if not app_res["success"]:
+                patched_text = agent_output.get("patched_source")
+                if not patched_text and diff_text:
+                    app_ok, app_patched, app_err = apply_unified_diff_to_text(before_text, diff_text)
+                    if app_ok:
+                        patched_text = app_patched
+
+                if not patched_text and old_text and old_text in before_text:
+                    patched_text = before_text.replace(old_text, new_text, 1)
+
+                if not patched_text:
                     failure_type = "mechanical_failure"
                     failure_subtype = "apply_failed"
+                elif expected_after_text is not None:
+                    sem_eval = evaluate_semantic_correctness(
+                        patched_code=patched_text,
+                        expected_code=expected_after_text,
+                        oracle_spec=oracle_spec
+                    )
+                    canonical_source_match = sem_eval["canonical_source_match"]
+                    token_equivalent = sem_eval["token_equivalent"]
+                    oracle_applicable = sem_eval["oracle_applicable"]
+                    semantic_oracle_pass = sem_eval["semantic_oracle_pass"]
+                    semantic_match = sem_eval["semantic_match"]
+                    semantic_match_mode = sem_eval["semantic_match_mode"]
+                    failure_subtype = sem_eval["failure_subtype"]
+                    failure_type = "success" if semantic_match else failure_subtype
                 else:
-                    patched_text = app_res["patched_text"]
-                    if expected_after_text is not None:
-                        sem_eval = evaluate_semantic_correctness(
-                            patched_code=patched_text,
-                            expected_after=expected_after_text,
-                            oracle_spec=oracle_spec
-                        )
-                        canonical_source_match = sem_eval["canonical_source_match"]
-                        token_equivalent = sem_eval["token_equivalent"]
-                        oracle_applicable = sem_eval["oracle_applicable"]
-                        semantic_oracle_pass = sem_eval["semantic_oracle_pass"]
-                        semantic_match = sem_eval["semantic_match"]
-                        semantic_match_mode = sem_eval["semantic_match_mode"]
-                        failure_subtype = sem_eval["failure_subtype"]
-                        failure_type = "success" if semantic_match else failure_subtype
-                    else:
-                        failure_type = "unknown"
-                        failure_subtype = "no_expected_fixture"
-
-        mechanical_success = bool(
-            is_elig_exp
-            and elig_actual
-            and actual_status == "generated"
-            and validation.get("unified_diff_valid")
-            and validation.get("path_match")
-            and validation.get("size_within_limit")
-            and validation.get("apply_check")
-            and validation.get("structural_sanity")
-        )
+                    failure_type = "unknown"
+                    failure_subtype = "no_expected_fixture"
 
         item_result = {
             "scenario_id": sid,
@@ -249,6 +254,10 @@ def run_benchmark(
             "eligibility_expected": is_elig_exp,
             "eligibility_actual": elig_actual,
             "eligibility_correct": (elig_actual == is_elig_exp),
+            "gate_decision": "eligible" if gate_eligible else "skipped",
+            "gate_skip": not gate_eligible,
+            "gate_reason": gate_reason,
+            "model_invoked": model_invoked,
             "expected_fix_status": sc.get("expected_fix_status", "generated" if is_elig_exp else "skipped"),
             "actual_fix_status": actual_status,
             "skip_reason": skip_reason,
