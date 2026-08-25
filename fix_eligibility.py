@@ -97,14 +97,19 @@ def is_security_finding(finding: Dict[str, Any]) -> bool:
 def is_absence_type_finding(finding: Dict[str, Any]) -> bool:
     """Checks whether the finding describes an absence/missing code issue."""
     problem = str(finding.get("problem", "")).strip()
+    prob_lower = problem.lower()
     
-    # 1. Verifier Grounding Strategy check
+    # 1. Verifier Grounding Strategy check for resource cleanups
     strategy = classify_grounding_strategy(problem)
-    if strategy in (STRATEGY_ABSENCE_REFERENCE, STRATEGY_ABSENCE_RESOURCE_CLEANUP):
+    if strategy == STRATEGY_ABSENCE_RESOURCE_CLEANUP:
         return True
 
-    # 2. Problem keyword heuristics
-    prob_lower = problem.lower()
+    # 2. Localized presence maintainability issues (unused variables, dead assignments, redundant logic)
+    # are concrete statement removals/edits and must not be rejected as absence issues.
+    if any(k in prob_lower for k in ("unused local variable", "unused variable", "unused local", "unused stringbuilder", "dead assignment", "redundant boolean", "redundant double negation", "redundant negation")):
+        return False
+
+    # 3. Problem keyword heuristics for true missing code / absence
     for kw in ABSENCE_KEYWORDS:
         if kw in prob_lower:
             return True

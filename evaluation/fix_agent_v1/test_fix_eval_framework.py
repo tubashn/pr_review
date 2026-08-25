@@ -119,8 +119,10 @@ class TestMetricComputations(unittest.TestCase):
                         "unified_diff_valid": True,
                         "path_match": True,
                         "size_within_limit": True,
-                        "apply_check": True
+                        "apply_check": True,
+                        "structural_sanity": True
                     },
+                    "mechanical_success": True,
                     "ground_truth_match": True,
                     "extra_changed_lines": 0,
                     "failure_type": "success",
@@ -133,6 +135,7 @@ class TestMetricComputations(unittest.TestCase):
                     "eligibility_actual": False,
                     "actual_fix_status": "skipped",
                     "validation": {},
+                    "mechanical_success": False,
                     "ground_truth_match": False,
                     "extra_changed_lines": 0,
                     "failure_type": "success",
@@ -145,9 +148,11 @@ class TestMetricComputations(unittest.TestCase):
         sm = metrics["summary"]
         self.assertEqual(sm["total_scenarios"], 2)
         self.assertEqual(sm["eligibility_accuracy"], 1.0)
-        self.assertEqual(sm["generation_rate"], 1.0)
+        self.assertEqual(sm["model_edit_generation_rate"], 1.0)
         self.assertEqual(sm["safe_skip_rate"], 1.0)
-        self.assertEqual(sm["ground_truth_match_rate"], 1.0)
+        self.assertEqual(sm["eligible_diff_valid_rate"], 1.0)
+        self.assertEqual(sm["eligible_mechanical_success_rate"], 1.0)
+        self.assertEqual(sm["eligible_ground_truth_match_rate"], 1.0)
         self.assertEqual(sm["strict_overall_success_rate"], 1.0)
 
 
@@ -162,9 +167,9 @@ class TestMockEvaluationRunner(unittest.TestCase):
 
         for r in out["results"]:
             self.assertIn("failure_type", r)
+            self.assertIn("mechanical_success", r)
 
     def test_holdout_isolation_and_explicit_selection(self):
-        # Default split in run_evaluation is DEV
         from run_fix_eval import run_evaluation
         out_dev = run_evaluation(split="DEV", backend="mock")
         dev_ids = {r["scenario_id"] for r in out_dev["results"]}

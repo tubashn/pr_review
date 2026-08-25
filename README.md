@@ -291,11 +291,26 @@ Projede `main` branch'ine yapılan her push ve pull request için otomatik GitHu
 
 ---
 
-## Fix Agent V1 (Automated Patch Suggestions)
+## Fix Agent V2 (Grounded Structured Edits)
 
 PR Review Agent, verifier tarafından `ACCEPT` edilmiş belirli finding'ler için kullanıcıya manuel inceleme gerektiren, güvenli ve konservatif **unified diff patch önerileri** üretir.
 
-### 1. Güvenlik ve Kapsam Kuralları
+### 1. Temel Mimari Prensibi (Structured Edits)
+Fix Agent V2'de LLM'den doğrudan unified diff / hunk header üretmesi istenmez. Bunun yerine modelin görevi **lokal semantik edit belirleme** (`old_text` -> `new_text`) işlemine indirgenmiştir:
+```
+Verified Finding + Source Context
+  │
+  ├── [1] Deterministic Eligibility Gate (fix_eligibility.py)
+  ├── [2] Model Proposes Structured Edit (old_text -> new_text)
+  ├── [3] Exact / Whitespace Grounding & Target Proximity Validation (structured_edit_validator.py)
+  ├── [4] Target-Touch & Meaningful Construct Verification
+  ├── [5] In-Memory Temporary Source Replacement
+  ├── [6] Lightweight Structural Java Sanity Check (Balanced Braces/Parens)
+  ├── [7] Deterministic Unified Diff Synthesis (difflib) & <=20 Line Limit
+  └── [8] Suggested Fix Rendered in Review Summary
+```
+
+### 2. Güvenlik ve Kapsam Kuralları
 * **Asla Target Repo'yu Mutate Etmez**: `git apply`, branch write veya commit/push işlemleri yapmaz.
 * **Deterministic Eligibility Gate (`fix_eligibility.py`)**:
   - Yalnızca verifier tarafından onaylanan (`decision == ACCEPT`) finding'leri işler.
@@ -303,14 +318,16 @@ PR Review Agent, verifier tarafından `ACCEPT` edilmiş belirli finding'ler içi
   - **Güvenlik finding'leri (`security_validation`) otomatik düzeltilmez** (`security_findings_not_auto_fixed`).
   - **Absence/eksik kod finding'leri otomatik düzeltilmez** (`absence_type_not_auto_fixed`).
   - Çoklu dosya (`multi_file_not_supported`) veya geçersiz dosya tipleri reddedilir.
-* **Deterministic Patch Safety Validator (`patch_validator.py`)**:
-  - Standart unified diff formatı (`--- a/...`, `+++ b/...`, `@@ ... @@`) zorunludur.
-  - Sadece finding'in ait olduğu tekil dosyayı değiştirebilir; path traversal (`..`) ve mutlak sistem yolları reddedilir.
+  - Lokalize presence-type maintainability bulguları (kullanılmayan yerel değişkenler, ölü atamalar) başarıyla işlenir.
+* **Deterministic Structured Edit & Diff Validator (`structured_edit_validator.py`)**:
+  - `old_text` hedef dosyada aranır; tam 1 eşleşme zorunludur (`exact` veya kontrollü `normalized_whitespace`). 0 eşleşme -> `old_text_not_found`, birden fazla -> `ambiguous_old_text`.
+  - Tek başına süslü parantez (`}`), noktalı virgül veya boşluk içeren hedef parçalar `insufficient_target_context` olarak reddedilir.
+  - Değişiklik içermeyen veya salt boşluk olan edit'ler `no_op_fix` olarak elenir.
+  - Bulunan satırın finding hedef satırına yakınlığı (`target_location_mismatch`) ve evidence'a dokunması (`target_not_modified`) denetlenir.
   - **Maksimum 20 Değişen Satır Limiti**: Eklenen + silinen kaynak satır sayısı 20'yi aşarsa patch `patch_too_large` olarak reddedilir.
-  - Dosya oluşturma, silme, yeniden adlandırma veya binary patch işlemleri engellenir.
-  - AST Sanity: Geçici uygulanan patch üzerinde parantez/süslü parantez dengesi ve Java token geçerliliği kontrol edilir.
+  - **Lightweight Structural Java Sanity**: Parantez ve süslü parantez dengesi kontrol edilir (`structural_invalid`).
 
-### 2. Kullanım & Konfigürasyon
+### 3. Kullanım & Konfigürasyon
 Fix Agent varsayılan olarak **KAPALIDIR** (`PR_REVIEW_FIX_AGENT_ENABLED=false`).
 
 * **Environment**: `PR_REVIEW_FIX_AGENT_ENABLED=true`
@@ -322,43 +339,29 @@ Fix Agent varsayılan olarak **KAPALIDIR** (`PR_REVIEW_FIX_AGENT_ENABLED=false`)
 
 ## Fix Agent Evaluation Harness (`evaluation/fix_agent_v1/`)
 
-Fix Agent V1'in patch güvenliğini, uygulama başarısını ve beklenen kod durumuna uygunluğunu (ground-truth match) ölçmek için bağımsız, sentetik ve deterministik bir değerlendirme altyapısıdır.
+Fix Agent V2'nin mekanik güvenliğini (grounding, valid diff, in-memory apply, Java sanity) ve beklenen kod durumuna uygunluğunu (semantic ground-truth match) ölçmek için bağımsız, sentetik ve deterministik bir değerlendirme altyapısıdır.
 
-### 1. Değerlendirme Pipeline'ı
-```
-Synthetic Verified Finding
-  │
-  ├── [1] Fix Agent V1 (fix_agent.py)
-  ├── [2] Unified Diff Generation
-  ├── [3] Patch Safety Validation (patch_validator.py)
-  ├── [4] In-Memory Temporary Apply (apply_unified_diff_to_text)
-  ├── [5] Expected Source Comparison (Normalized Whitespace)
-  └── [6] Metrics & Failure Taxonomy Aggregation
-```
-
-### 2. Neyi Ölçer ve Neyi Ölçmez?
+### 1. Neyi Ölçer ve Neyi Ölçmez?
 * **Neyi Ölçer?**:
-  - **Patch Güvenliği**: Sadece hedeflenen dosyanın değişmesi, path traversal engellenmesi, <= 20 satır sınırı.
-  - **Uygulanabilirlik**: Üretilen patch'in kaynak koda hatasız uygulanabilmesi.
-  - **Ground-Truth Doğruluğu**: Uygulanan kodun `expected_after.java` ile tam eşleşmesi.
-  - **Minimallik / Over-edit**: Gerekli satırlar dışında fazladan kod değiştirilip değiştirilmediği.
+  - **Mekanik Kalite (Mechanical Success)**: `old_text` exact grounding, path safety, diff geçerliliği, <= 20 satır sınırı, in-memory apply, Java yapısal dengesi.
+  - **Semantik Kalite (Semantic Success)**: Uygulanan kodun `expected_after.java` ile tam eşleşmesi.
+  - **Strict Overall Success**: Mekanik başarı + Semantik ground truth eşleşmesi.
   - **Güvenli Skip Oranı**: Güvenlik ve eksik kod gibi kapsam dışı senaryoların güvenle atlanması.
 * **Neyi Ölçmez?**:
   - Tam proje Maven/Gradle derleme süreci (javac/classpath).
   - Maven unit/entegrasyon test regresyonları.
   - Runtime uygulama davranış garantisi.
-  *(Bu kontroller ilerideki sandbox/build-and-test aşamalarında ele alınacaktır.)*
 
-### 3. Dataset İstatistikleri ve HOLDOUT İzolasyonu
+### 2. Dataset İstatistikleri ve HOLDOUT İzolasyonu
 * **Toplam Senaryo**: 30 sentetik Java senaryosu
 * **DEV Split**: 22 senaryo (15 Eligible, 7 Ineligible)
 * **HOLDOUT Split**: 8 senaryo (5 Eligible, 3 Ineligible)
 
 > 🔒 **HOLDOUT İzolasyon Kuralı**: `HOLDOUT` split'i yalnızca nihai one-shot değerlendirme içindir. Prompt düzenlemeleri, eligibility kural tuning'i veya mock kuralları için **asla kullanılmamalıdır**.
 
-### 4. Çalıştırma Komutları
+### 3. Çalıştırma Komutları
 ```bash
-# 1. Dataset Doğrulama ve Audit
+# 1. Dataset Doğrulama, Audit & Framework Testleri
 python evaluation/fix_agent_v1/validate_fix_eval.py
 python evaluation/fix_agent_v1/audit_fix_eval.py
 python evaluation/fix_agent_v1/test_fix_eval_framework.py

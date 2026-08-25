@@ -17,14 +17,14 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from fix_eligibility import check_fix_eligibility
 from fix_agent_prompt_builder import FIX_AGENT_SYSTEM_PROMPT, build_fix_agent_prompt
-from patch_validator import validate_patch
+from structured_edit_validator import validate_and_apply_structured_edit
 from mock_fix_agent import run_deterministic_mock_fix
 
 logger = logging.getLogger("fix_agent")
 
 
 def parse_fix_agent_json(raw_text: str, finding_id: str, file_path: str) -> Dict[str, Any]:
-    """Parses model JSON response for Fix Agent."""
+    """Parses model JSON response for Fix Agent V2 structured edits."""
     cleaned = raw_text.strip()
     if "```" in cleaned:
         match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", cleaned)
@@ -39,9 +39,12 @@ def parse_fix_agent_json(raw_text: str, finding_id: str, file_path: str) -> Dict
                 "file_path": file_path,
                 "fix_status": "rejected",
                 "diff": "",
+                "old_text": "",
+                "new_text": "",
                 "explanation": "Response is not a valid JSON object.",
                 "skip_reason": None,
-                "rejection_reason": "invalid_json_format"
+                "rejection_reason": "invalid_json_format",
+                "failure_type": "invalid_model_schema"
             }
 
         status = str(data.get("fix_status", "skipped")).lower()
@@ -52,7 +55,8 @@ def parse_fix_agent_json(raw_text: str, finding_id: str, file_path: str) -> Dict
             "finding_id": data.get("finding_id", finding_id),
             "file_path": data.get("file_path", file_path),
             "fix_status": status,
-            "diff": str(data.get("diff", "")),
+            "old_text": str(data.get("old_text", "")),
+            "new_text": str(data.get("new_text", "")),
             "explanation": str(data.get("explanation", "")),
             "skip_reason": data.get("skip_reason"),
             "rejection_reason": data.get("rejection_reason")
@@ -63,9 +67,12 @@ def parse_fix_agent_json(raw_text: str, finding_id: str, file_path: str) -> Dict
             "file_path": file_path,
             "fix_status": "rejected",
             "diff": "",
+            "old_text": "",
+            "new_text": "",
             "explanation": f"JSON parse error: {str(e)}",
             "skip_reason": None,
-            "rejection_reason": "json_parse_error"
+            "rejection_reason": "json_parse_error",
+            "failure_type": "invalid_model_schema"
         }
 
 
@@ -78,7 +85,8 @@ def run_fix_agent_for_finding(
     api_base: Optional[str] = None,
     api_key: Optional[str] = None,
     model_id: str = "Qwen/Qwen2.5-Coder-7B-Instruct",
-    dry_run: bool = False
+    dry_run: bool = False,
+    pr_changed_files: Optional[List[str]] = None
 ) -> Dict[str, Any]:
     """
     Processes a single verified finding through eligibility, generation, and validation.
@@ -107,7 +115,10 @@ def run_fix_agent_for_finding(
             "file_path": file_rel,
             "fix_status": "skipped",
             "diff": "",
+            "old_text": "",
+            "new_text": "",
             "explanation": "Finding not eligible for automated patch generation in V1.",
+            "match_mode": None,
             "validation": {
                 "unified_diff_valid": False,
                 "path_match": False,
@@ -116,12 +127,12 @@ def run_fix_agent_for_finding(
                 "structural_sanity": False
             },
             "skip_reason": eligibility["reason"],
-            "rejection_reason": None
+            "rejection_reason": None,
+            "failure_type": eligibility["reason"]
         }
 
     # Extract surrounding source context
     source_context = file_content or finding.get("after_source", "")
-    code_snippet = finding.get("code_snippet", "")
 
     # 2. Mock / Dry-run Backend
     if backend == "mock" or dry_run:
@@ -129,7 +140,8 @@ def run_fix_agent_for_finding(
             finding=finding,
             file_path=file_rel,
             source_content=file_content,
-            diff_hunk=""
+            diff_hunk="",
+            pr_changed_files=pr_changed_files
         )
 
     # 3. Production Transformers Backend
@@ -140,7 +152,10 @@ def run_fix_agent_for_finding(
                 "file_path": file_rel,
                 "fix_status": "rejected",
                 "diff": "",
+                "old_text": "",
+                "new_text": "",
                 "explanation": "Model backend not initialized.",
+                "match_mode": None,
                 "validation": {
                     "unified_diff_valid": False,
                     "path_match": False,
@@ -149,7 +164,8 @@ def run_fix_agent_for_finding(
                     "structural_sanity": False
                 },
                 "skip_reason": None,
-                "rejection_reason": "model_not_initialized"
+                "rejection_reason": "model_not_initialized",
+                "failure_type": "patch_generation_failed"
             }
 
         import torch
@@ -167,7 +183,7 @@ def run_fix_agent_for_finding(
         prompt_text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         inputs = tokenizer(prompt_text, return_tensors="pt").to(loaded_model.device)
         with torch.no_grad():
-            outputs = loaded_model.generate(**inputs, max_new_tokens=768, do_sample=False, temperature=0.0)
+            outputs = loaded_model.generate(**inputs, max_new_tokens=512, do_sample=False, temperature=0.0)
         gen_tokens = outputs[0][inputs["input_ids"].shape[1]:]
         raw = tokenizer.decode(gen_tokens, skip_special_tokens=True)
         parsed = parse_fix_agent_json(raw, fid, file_rel)
@@ -175,39 +191,40 @@ def run_fix_agent_for_finding(
         if parsed["fix_status"] == "skipped":
             return {
                 **parsed,
+                "diff": "",
+                "match_mode": None,
                 "validation": {
                     "unified_diff_valid": False,
                     "path_match": False,
                     "size_within_limit": False,
                     "apply_check": False,
                     "structural_sanity": False
-                }
+                },
+                "failure_type": "model_skipped"
+            }
+        elif parsed["fix_status"] == "rejected":
+            return {
+                **parsed,
+                "diff": "",
+                "match_mode": None,
+                "validation": {
+                    "unified_diff_valid": False,
+                    "path_match": False,
+                    "size_within_limit": False,
+                    "apply_check": False,
+                    "structural_sanity": False
+                },
+                "failure_type": parsed.get("failure_type", "invalid_model_schema")
             }
 
-        # 4. Patch Safety Validation
-        val_res = validate_patch(parsed["diff"], file_rel, file_content if file_content else None)
-        if val_res["valid"]:
-            return {
-                "finding_id": fid,
-                "file_path": file_rel,
-                "fix_status": "generated",
-                "diff": val_res["clean_diff"],
-                "explanation": parsed.get("explanation", ""),
-                "validation": val_res["validation"],
-                "skip_reason": None,
-                "rejection_reason": None
-            }
-        else:
-            return {
-                "finding_id": fid,
-                "file_path": file_rel,
-                "fix_status": "rejected",
-                "diff": val_res["clean_diff"],
-                "explanation": parsed.get("explanation", ""),
-                "validation": val_res["validation"],
-                "skip_reason": None,
-                "rejection_reason": val_res["rejection_reason"]
-            }
+        # 4. Structured Edit Grounding, Replacement & Diff Synthesis
+        val_res = validate_and_apply_structured_edit(
+            structured_edit=parsed,
+            finding=finding,
+            source_content=file_content,
+            pr_changed_files=pr_changed_files
+        )
+        return val_res
 
     # 5. OpenAI API Backend
     elif backend == "openai":
@@ -226,7 +243,7 @@ def run_fix_agent_for_finding(
                 {"role": "user", "content": user_prompt}
             ],
             "temperature": 0.0,
-            "max_tokens": 768
+            "max_tokens": 512
         }
         req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"})
         if api_key:
@@ -239,38 +256,39 @@ def run_fix_agent_for_finding(
         if parsed["fix_status"] == "skipped":
             return {
                 **parsed,
+                "diff": "",
+                "match_mode": None,
                 "validation": {
                     "unified_diff_valid": False,
                     "path_match": False,
                     "size_within_limit": False,
                     "apply_check": False,
                     "structural_sanity": False
-                }
+                },
+                "failure_type": "model_skipped"
+            }
+        elif parsed["fix_status"] == "rejected":
+            return {
+                **parsed,
+                "diff": "",
+                "match_mode": None,
+                "validation": {
+                    "unified_diff_valid": False,
+                    "path_match": False,
+                    "size_within_limit": False,
+                    "apply_check": False,
+                    "structural_sanity": False
+                },
+                "failure_type": parsed.get("failure_type", "invalid_model_schema")
             }
 
-        val_res = validate_patch(parsed["diff"], file_rel, file_content if file_content else None)
-        if val_res["valid"]:
-            return {
-                "finding_id": fid,
-                "file_path": file_rel,
-                "fix_status": "generated",
-                "diff": val_res["clean_diff"],
-                "explanation": parsed.get("explanation", ""),
-                "validation": val_res["validation"],
-                "skip_reason": None,
-                "rejection_reason": None
-            }
-        else:
-            return {
-                "finding_id": fid,
-                "file_path": file_rel,
-                "fix_status": "rejected",
-                "diff": val_res["clean_diff"],
-                "explanation": parsed.get("explanation", ""),
-                "validation": val_res["validation"],
-                "skip_reason": None,
-                "rejection_reason": val_res["rejection_reason"]
-            }
+        val_res = validate_and_apply_structured_edit(
+            structured_edit=parsed,
+            finding=finding,
+            source_content=file_content,
+            pr_changed_files=pr_changed_files
+        )
+        return val_res
 
     else:
         raise ValueError(f"Unknown backend: {backend}")

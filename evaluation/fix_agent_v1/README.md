@@ -1,15 +1,16 @@
-# Fix Agent V1 Evaluation Harness
+# Fix Agent Evaluation Harness (V2 Benchmark)
 
-Independent, synthetic, and deterministic evaluation benchmark for **PR Review Fix Agent V1**.
+Independent, synthetic, and deterministic evaluation benchmark for **PR Review Fix Agent V2**.
 
 ---
 
 ## 🎯 Purpose & Scope
 
-This evaluation harness measures whether Fix Agent V1:
+This evaluation harness measures whether Fix Agent V2:
 1. **Accurately Filters**: Correctly accepts eligible localized correctness/maintainability findings and safely skips security, absence, multi-file, and large patch issues.
-2. **Generates Valid & Safe Patches**: Produces standard unified diffs targeting only the expected file within the <= 20 changed lines safety limit.
-3. **Achieves Ground-Truth Correctness**: Produces clean patches that, when applied to the original source code, match the expected ground-truth code state.
+2. **Generates Grounded Structured Edits**: Identifies exact, localized `old_text` -> `new_text` replacements without requiring the LLM to calculate unified diff headers/offsets.
+3. **Validates Mechanical Safety**: Ensures path safety, <= 20 changed lines, non-delimiter target constructs, in-memory patch application, and structural Java sanity (balanced braces/parens).
+4. **Achieves Ground-Truth Semantic Correctness**: Produces clean patches that, when applied to the original source code, match the expected ground-truth code state (`expected_after.java`).
 
 ### ⚠️ What This Benchmark Does NOT Measure
 - Full project compilation (javac/classpath dependencies)
@@ -44,7 +45,7 @@ This evaluation harness measures whether Fix Agent V1:
 > **DO NOT USE HOLDOUT FOR:**
 > * Prompt engineering or template modifications
 > * Eligibility gate heuristic tuning
-> * Patch validator rule tuning
+> * Patch validator / structured edit rule tuning
 > * Mock rule creation
 > * Iterative model comparison
 
@@ -61,47 +62,71 @@ python evaluation/fix_agent_v1/validate_fix_eval.py
 
 # Audit for duplicate fixtures and leakage
 python evaluation/fix_agent_v1/audit_fix_eval.py
+
+# Framework unit tests
+python evaluation/fix_agent_v1/test_fix_eval_framework.py
 ```
 
 ### 2. GPU-Free Mock Evaluation (CI / Local)
 ```bash
-python evaluation/fix_agent_v1/run_fix_eval.py   --split DEV   --backend mock   --output evaluation/fix_agent_v1/results/mock_dev.json
+python evaluation/fix_agent_v1/run_fix_eval.py \
+  --split DEV \
+  --backend mock \
+  --output evaluation/fix_agent_v1/results/mock_dev.json
 
-python evaluation/fix_agent_v1/evaluate_fix_results.py   evaluation/fix_agent_v1/results/mock_dev.json
+python evaluation/fix_agent_v1/evaluate_fix_results.py \
+  evaluation/fix_agent_v1/results/mock_dev.json
 ```
 
 ### 3. Real Model Evaluation on GPU (Tesla T4 / Colab / Server)
 ```bash
-python evaluation/fix_agent_v1/run_fix_eval.py   --split DEV   --backend transformers   --model Qwen/Qwen2.5-Coder-7B-Instruct   --quantization 4bit   --output evaluation/fix_agent_v1/results/qwen7b_dev.json
+python evaluation/fix_agent_v1/run_fix_eval.py \
+  --split DEV \
+  --backend transformers \
+  --model Qwen/Qwen2.5-Coder-7B-Instruct \
+  --quantization 4bit \
+  --output evaluation/fix_agent_v1/results/qwen7b_dev.json
 
-python evaluation/fix_agent_v1/evaluate_fix_results.py   evaluation/fix_agent_v1/results/qwen7b_dev.json
+python evaluation/fix_agent_v1/evaluate_fix_results.py \
+  evaluation/fix_agent_v1/results/qwen7b_dev.json
 ```
 
 ---
 
 ## 📐 Evaluation Metrics & Failure Taxonomy
 
-| Metric | Definition |
-|---|---|
-| **Eligibility Accuracy** | Rate of correct generate vs skip decisions across all scenarios. |
-| **Generation Rate** | Percentage of eligible scenarios where a patch was generated. |
-| **Safe Skip Rate** | Percentage of ineligible scenarios correctly skipped. |
-| **Unified Diff Valid Rate** | Rate of valid unified diff syntax parsing. |
-| **Path Safety Rate** | Rate of patches modifying only the designated source file without traversal. |
-| **Size Safety Rate** | Rate of patches respecting the <= 20 changed lines constraint. |
-| **Patch Apply Rate** | Rate of patches cleanly applying in-memory to the source fixture. |
-| **Ground Truth Match Rate** | Rate of patched source matching `expected_after.java` (normalized whitespace). |
-| **Strict Overall Fix Success** | Percentage of eligible scenarios passing all validation checks AND matching ground truth. |
-| **Average Extra Changed Lines**| Average unnecessary changed lines beyond minimal expected patch. |
+### Metric Separation (Mechanical vs Semantic)
+
+| Category | Metric | Definition |
+|---|---|---|
+| **Gate** | **Eligibility Accuracy** | Rate of correct generate vs skip decisions across all scenarios. |
+| **Gate** | **Safe Skip Rate** | Percentage of ineligible scenarios correctly skipped. |
+| **Mechanical** | **Model Structured Edit Gen Rate** | Percentage of eligible scenarios where model returned a structured edit. |
+| **Mechanical** | **Synthesized Diff Valid Rate** | Rate of valid unified diff syntax parsing. |
+| **Mechanical** | **Path Safety Rate** | Rate of patches modifying only the designated source file without traversal. |
+| **Mechanical** | **Size Safety Rate** | Rate of patches respecting the <= 20 changed lines constraint. |
+| **Mechanical** | **Patch In-Memory Apply Rate** | Rate of patches cleanly applying in-memory to the source fixture. |
+| **Mechanical** | **Mechanical Success Rate** | All mechanical checks pass: grounded + valid diff + size safe + path safe + applied + structural sanity. |
+| **Semantic** | **Ground Truth Match Rate** | Rate of patched source matching `expected_after.java` (normalized whitespace). |
+| **Overall** | **Strict Overall Fix Success** | Percentage of eligible scenarios passing mechanical validation AND matching ground truth. |
 
 ### Failure Taxonomy
 * `eligibility_false_skip`: Eligible finding erroneously skipped by eligibility gate.
 * `eligibility_unsafe_generate`: Ineligible finding (e.g. security) erroneously accepted.
 * `model_skipped`: Model explicitly declined to produce a patch.
-* `malformed_diff`: Patch failed unified diff syntax parsing.
-* `unsafe_path`: Patch targeted wrong file or attempted path traversal.
-* `patch_too_large`: Patch exceeded 20 changed lines.
-* `apply_failed`: Patch could not be applied cleanly to source context.
-* `wrong_fix`: Patch applied cleanly but produced incorrect code.
+* `invalid_model_schema`: Model output failed JSON schema parsing.
+* `old_text_not_found`: `old_text` was not found in target source code.
+* `ambiguous_old_text`: `old_text` occurred multiple times in target source code.
+* `insufficient_target_context`: `old_text` consisted solely of delimiters/punctuation (e.g. `}`).
+* `target_location_mismatch`: `old_text` location in source was distant from verified finding line.
+* `target_not_modified`: `old_text` did not touch or overlap the verified problem evidence.
+* `no_op_fix`: `old_text` was identical to `new_text` (or only whitespace changes).
+* `patch_too_large`: Generated patch exceeded 20 changed lines limit.
+* `unsafe_path`: Patch targeted wrong file, attempted path traversal, or file outside PR scope.
+* `patch_generation_failed`: Backend model generation error.
+* `apply_failed`: Synthesized patch failed in-memory application check.
+* `structural_invalid`: Patched Java source failed structural sanity check (unbalanced braces/parens).
+* `wrong_fix`: Patch applied cleanly but resulting code did not match expected ground truth.
 * `over_edit`: Patch achieved correct fix but modified additional unnecessary lines.
 * `success`: Patch cleanly applied and perfectly matched expected ground truth.
+

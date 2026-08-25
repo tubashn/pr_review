@@ -122,6 +122,231 @@ class TestFixEligibilityGate(unittest.TestCase):
         self.assertFalse(res["eligible"])
         self.assertEqual(res["reason"], "multi_file_not_supported")
 
+    def test_eligible_unused_local_variable_not_false_skipped(self):
+        """FA-003 regression: unused localized variable must be eligible."""
+        finding = {
+            "candidate_id": "FA-003",
+            "decision": "ACCEPT",
+            "source_reviewer": "maintainability",
+            "file": "src/main/java/com/example/stats/LatencyTracker.java",
+            "problem": "Unused local variable `debugCount` should be removed.",
+            "code_snippet": "int debugCount = 0;",
+            "after_source": "int debugCount = 0;\nrecordLatency(ms);"
+        }
+        res = check_fix_eligibility(finding)
+        self.assertTrue(res["eligible"])
+        self.assertEqual(res["reason"], "eligible_for_fix")
+
+    def test_eligible_unused_allocation_not_false_skipped(self):
+        """FA-004 regression: unused StringBuilder allocation must be eligible."""
+        finding = {
+            "candidate_id": "FA-004",
+            "decision": "ACCEPT",
+            "source_reviewer": "maintainability",
+            "file": "src/main/java/com/example/text/MessageFormatter.java",
+            "problem": "Unused StringBuilder allocation `builder` has no effect.",
+            "code_snippet": "StringBuilder builder = new StringBuilder();",
+            "after_source": "StringBuilder builder = new StringBuilder();\nreturn prefix + body;"
+        }
+        res = check_fix_eligibility(finding)
+        self.assertTrue(res["eligible"])
+        self.assertEqual(res["reason"], "eligible_for_fix")
+
+    def test_eligible_dead_local_assignment_not_false_skipped(self):
+        """FA-007 regression: unused local error state must be eligible."""
+        finding = {
+            "candidate_id": "FA-007",
+            "decision": "ACCEPT",
+            "source_reviewer": "maintainability",
+            "file": "src/main/java/com/example/service/ExecutionService.java",
+            "problem": "Unused local variable `lastError` assigned but never read.",
+            "code_snippet": "String lastError = null;",
+            "after_source": "String lastError = null;\nreturn executeTask();"
+        }
+        res = check_fix_eligibility(finding)
+        self.assertTrue(res["eligible"])
+        self.assertEqual(res["reason"], "eligible_for_fix")
+
+
+class TestStructuredEditValidator(unittest.TestCase):
+    """Unit tests for Fix Agent V2 structured edit validation and grounding."""
+
+    def setUp(self):
+        self.source = """package com.example.calc;
+
+public class MathUtil {
+    public int compute(int a, int b) {
+        int debugCount = 0;
+        if (a < 10) {
+            return 2 * (a - b);
+        }
+        return a + b;
+    }
+}
+"""
+        self.finding = {
+            "candidate_id": "f-1",
+            "file": "src/main/java/com/example/calc/MathUtil.java",
+            "line": 7,
+            "problem": "Wrong subtraction in formula: should be addition `a + b`.",
+            "evidence": "return 2 * (a - b);"
+        }
+
+    def test_exact_grounding_success(self):
+        edit = {
+            "finding_id": "f-1",
+            "file_path": "src/main/java/com/example/calc/MathUtil.java",
+            "old_text": "return 2 * (a - b);",
+            "new_text": "return 2 * (a + b);",
+            "explanation": "Correct formula to addition."
+        }
+        from structured_edit_validator import validate_and_apply_structured_edit
+        res = validate_and_apply_structured_edit(edit, self.finding, self.source)
+        self.assertEqual(res["fix_status"], "generated")
+        self.assertEqual(res["match_mode"], "exact")
+        self.assertTrue(res["validation"]["unified_diff_valid"])
+        self.assertTrue(res["validation"]["structural_sanity"])
+        self.assertIn("+            return 2 * (a + b);", res["diff"])
+        self.assertIn("-            return 2 * (a - b);", res["diff"])
+
+    def test_whitespace_normalization_fallback(self):
+        edit = {
+            "finding_id": "f-1",
+            "file_path": "src/main/java/com/example/calc/MathUtil.java",
+            "old_text": "return   2 * (a - b);",  # extra interior spaces
+            "new_text": "return 2 * (a + b);",
+            "explanation": "Whitespace fallback test."
+        }
+        from structured_edit_validator import validate_and_apply_structured_edit
+        res = validate_and_apply_structured_edit(edit, self.finding, self.source)
+        self.assertEqual(res["fix_status"], "generated")
+        self.assertEqual(res["match_mode"], "normalized_whitespace")
+        self.assertTrue(res["validation"]["apply_check"])
+
+    def test_reject_old_text_not_found(self):
+        edit = {
+            "finding_id": "f-1",
+            "file_path": "src/main/java/com/example/calc/MathUtil.java",
+            "old_text": "int nonExistent = 999;",
+            "new_text": "int fixed = 1;",
+            "explanation": "Missing snippet."
+        }
+        from structured_edit_validator import validate_and_apply_structured_edit
+        res = validate_and_apply_structured_edit(edit, self.finding, self.source)
+        self.assertEqual(res["fix_status"], "rejected")
+        self.assertEqual(res["failure_type"], "old_text_not_found")
+
+    def test_reject_ambiguous_old_text(self):
+        src_with_duplicates = "public void foo() { int x = 1; int x = 1; }"
+        edit = {
+            "finding_id": "f-1",
+            "file_path": "src/main/java/com/example/calc/MathUtil.java",
+            "old_text": "int x = 1;",
+            "new_text": "int x = 2;",
+            "explanation": "Ambiguous."
+        }
+        from structured_edit_validator import validate_and_apply_structured_edit
+        res = validate_and_apply_structured_edit(edit, self.finding, src_with_duplicates)
+        self.assertEqual(res["fix_status"], "rejected")
+        self.assertEqual(res["failure_type"], "ambiguous_old_text")
+
+    def test_reject_delimiter_only_insufficient_target_context(self):
+        for delim in ["}", "{", ";", ")", "true", "false", "   \n } \n "]:
+            edit = {
+                "finding_id": "f-1",
+                "file_path": "src/main/java/com/example/calc/MathUtil.java",
+                "old_text": delim,
+                "new_text": "int y = 5;",
+                "explanation": "Bad target."
+            }
+            from structured_edit_validator import validate_and_apply_structured_edit
+            res = validate_and_apply_structured_edit(edit, self.finding, self.source)
+            self.assertEqual(res["fix_status"], "rejected", f"Delimiter {delim} should be rejected")
+            self.assertEqual(res["failure_type"], "insufficient_target_context")
+
+    def test_reject_no_op_fix(self):
+        edit = {
+            "finding_id": "f-1",
+            "file_path": "src/main/java/com/example/calc/MathUtil.java",
+            "old_text": "return 2 * (a - b);",
+            "new_text": "return 2 * (a - b);",
+            "explanation": "Identical."
+        }
+        from structured_edit_validator import validate_and_apply_structured_edit
+        res = validate_and_apply_structured_edit(edit, self.finding, self.source)
+        self.assertEqual(res["fix_status"], "rejected")
+        self.assertEqual(res["failure_type"], "no_op_fix")
+
+    def test_reject_target_location_mismatch(self):
+        # Finding says line 100, but edit is on line 5
+        finding_distant = dict(self.finding, line=100)
+        edit = {
+            "finding_id": "f-1",
+            "file_path": "src/main/java/com/example/calc/MathUtil.java",
+            "old_text": "int debugCount = 0;",
+            "new_text": "",
+            "explanation": "Distant line test."
+        }
+        from structured_edit_validator import validate_and_apply_structured_edit
+        res = validate_and_apply_structured_edit(edit, finding_distant, self.source)
+        self.assertEqual(res["fix_status"], "rejected")
+        self.assertEqual(res["failure_type"], "target_location_mismatch")
+
+    def test_reject_target_not_modified(self):
+        # Defective evidence is return 2 * (a - b); but edit targets int debugCount = 0; with no common tokens
+        finding_touch = dict(self.finding, evidence="return 2 * (a - b);")
+        edit = {
+            "finding_id": "f-1",
+            "file_path": "src/main/java/com/example/calc/MathUtil.java",
+            "old_text": "int debugCount = 0;",
+            "new_text": "",
+            "explanation": "Wrong target line."
+        }
+        from structured_edit_validator import validate_and_apply_structured_edit
+        res = validate_and_apply_structured_edit(edit, finding_touch, self.source)
+        self.assertEqual(res["fix_status"], "rejected")
+        self.assertEqual(res["failure_type"], "target_not_modified")
+
+    def test_reject_structural_invalid(self):
+        edit = {
+            "finding_id": "f-1",
+            "file_path": "src/main/java/com/example/calc/MathUtil.java",
+            "old_text": "return 2 * (a - b);",
+            "new_text": "return 2 * (a - b); } } {",
+            "explanation": "Broken brackets."
+        }
+        from structured_edit_validator import validate_and_apply_structured_edit
+        res = validate_and_apply_structured_edit(edit, self.finding, self.source)
+        self.assertEqual(res["fix_status"], "rejected")
+        self.assertEqual(res["failure_type"], "structural_invalid")
+
+    def test_reject_patch_too_large(self):
+        big_new_text = "\n".join([f"int var_{i} = {i};" for i in range(25)])
+        edit = {
+            "finding_id": "f-1",
+            "file_path": "src/main/java/com/example/calc/MathUtil.java",
+            "old_text": "return 2 * (a - b);",
+            "new_text": big_new_text,
+            "explanation": "Too big."
+        }
+        from structured_edit_validator import validate_and_apply_structured_edit
+        res = validate_and_apply_structured_edit(edit, self.finding, self.source)
+        self.assertEqual(res["fix_status"], "rejected")
+        self.assertEqual(res["failure_type"], "patch_too_large")
+
+    def test_reject_unsafe_path(self):
+        edit = {
+            "finding_id": "f-1",
+            "file_path": "../etc/passwd",
+            "old_text": "foo",
+            "new_text": "bar",
+            "explanation": "Path traversal."
+        }
+        from structured_edit_validator import validate_and_apply_structured_edit
+        res = validate_and_apply_structured_edit(edit, self.finding, self.source)
+        self.assertEqual(res["fix_status"], "rejected")
+        self.assertEqual(res["failure_type"], "unsafe_path")
+
 
 class TestDeterministicPatchValidator(unittest.TestCase):
     """Unit tests for strict patch safety validation."""
@@ -371,7 +596,6 @@ class TestAPIServerFixAgent(unittest.TestCase):
         from api_server import app
 
         client = TestClient(app)
-        # Test request against current repo on main branch in mock mode
         payload = {
             "repo": ".",
             "branch": "main",

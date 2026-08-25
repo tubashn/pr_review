@@ -15,6 +15,9 @@
       "eligibility_actual": true,
       "expected_fix_status": "generated",
       "actual_fix_status": "generated",
+      "old_text": "if (isAuthorized == true) {",
+      "new_text": "if (isAuthorized) {",
+      "match_mode": "exact",
       "validation": {
         "unified_diff_valid": true,
         "path_match": true,
@@ -22,13 +25,15 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "ground_truth_match": false,
+      "mechanical_success": true,
+      "semantic_success": true,
+      "ground_truth_match": true,
       "extra_changed_lines": 0,
-      "failure_type": "wrong_fix",
+      "failure_type": "success",
       "skip_reason": null,
       "rejection_reason": null,
-      "diff": "--- a/src/main/java/com/example/payments/PaymentValidator.java\n+++ b/src/main/java/com/example/payments/PaymentValidator.java\n@@ -6,1 +6,1 @@\n-if (isAuthorized == true) {\n+if (isAuthorized) {",
-      "explanation": "Simplified redundant boolean comparison directly."
+      "diff": "--- a/src/main/java/com/example/payments/PaymentValidator.java\n+++ b/src/main/java/com/example/payments/PaymentValidator.java\n@@ -5,7 +5,7 @@\n         if (amount <= 0) {\n             return false;\n         }\n-        if (isAuthorized == true) {\n+        if (isAuthorized) {\n             return true;\n         }\n         return false;",
+      "explanation": ""
     },
     {
       "scenario_id": "FA-002",
@@ -40,6 +45,9 @@
       "eligibility_actual": true,
       "expected_fix_status": "generated",
       "actual_fix_status": "generated",
+      "old_text": "if (isBlocked == false) {",
+      "new_text": "if (!isBlocked) {",
+      "match_mode": "exact",
       "validation": {
         "unified_diff_valid": true,
         "path_match": true,
@@ -47,13 +55,15 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "ground_truth_match": false,
+      "mechanical_success": true,
+      "semantic_success": true,
+      "ground_truth_match": true,
       "extra_changed_lines": 0,
-      "failure_type": "wrong_fix",
+      "failure_type": "success",
       "skip_reason": null,
       "rejection_reason": null,
-      "diff": "--- a/src/main/java/com/example/auth/UserAccessController.java\n+++ b/src/main/java/com/example/auth/UserAccessController.java\n@@ -6,1 +6,1 @@\n-if (isBlocked == false) {\n+if (!isBlocked) {",
-      "explanation": "Simplified redundant boolean comparison directly."
+      "diff": "--- a/src/main/java/com/example/auth/UserAccessController.java\n+++ b/src/main/java/com/example/auth/UserAccessController.java\n@@ -2,7 +2,7 @@\n \n public class UserAccessController {\n     public boolean canAccessResource(boolean isBlocked, boolean isVerified) {\n-        if (isBlocked == false) {\n+        if (!isBlocked) {\n             return isVerified;\n         }\n         return false;",
+      "explanation": ""
     },
     {
       "scenario_id": "FA-003",
@@ -62,23 +72,28 @@
       "role": "maintainability",
       "difficulty": "EASY",
       "eligibility_expected": true,
-      "eligibility_actual": false,
+      "eligibility_actual": true,
       "expected_fix_status": "generated",
-      "actual_fix_status": "skipped",
+      "actual_fix_status": "generated",
+      "old_text": "int debugCount = 0;",
+      "new_text": "",
+      "match_mode": "exact",
       "validation": {
-        "unified_diff_valid": false,
-        "path_match": false,
-        "size_within_limit": false,
-        "apply_check": false,
-        "structural_sanity": false
+        "unified_diff_valid": true,
+        "path_match": true,
+        "size_within_limit": true,
+        "apply_check": true,
+        "structural_sanity": true
       },
+      "mechanical_success": true,
+      "semantic_success": false,
       "ground_truth_match": false,
-      "extra_changed_lines": 0,
-      "failure_type": "eligibility_false_skip",
-      "skip_reason": "absence_type_not_auto_fixed",
+      "extra_changed_lines": 1,
+      "failure_type": "wrong_fix",
+      "skip_reason": null,
       "rejection_reason": null,
-      "diff": "",
-      "explanation": "Finding not eligible for automated patch generation in V1."
+      "diff": "--- a/src/main/java/com/example/reporting/ReportGenerator.java\n+++ b/src/main/java/com/example/reporting/ReportGenerator.java\n@@ -2,7 +2,7 @@\n \n public class ReportGenerator {\n     public String generateSummary(String title, int totalRecords) {\n-        int debugCount = 0;\n+        \n         return \"Report: \" + title + \" (\" + totalRecords + \" records)\";\n     }\n }",
+      "explanation": ""
     },
     {
       "scenario_id": "FA-004",
@@ -87,23 +102,28 @@
       "role": "maintainability",
       "difficulty": "MEDIUM",
       "eligibility_expected": true,
-      "eligibility_actual": false,
+      "eligibility_actual": true,
       "expected_fix_status": "generated",
-      "actual_fix_status": "skipped",
+      "actual_fix_status": "generated",
+      "old_text": "StringBuilder builder = new StringBuilder();",
+      "new_text": "",
+      "match_mode": "exact",
       "validation": {
-        "unified_diff_valid": false,
-        "path_match": false,
-        "size_within_limit": false,
-        "apply_check": false,
-        "structural_sanity": false
+        "unified_diff_valid": true,
+        "path_match": true,
+        "size_within_limit": true,
+        "apply_check": true,
+        "structural_sanity": true
       },
+      "mechanical_success": true,
+      "semantic_success": false,
       "ground_truth_match": false,
-      "extra_changed_lines": 0,
-      "failure_type": "eligibility_false_skip",
-      "skip_reason": "absence_type_not_auto_fixed",
+      "extra_changed_lines": 1,
+      "failure_type": "wrong_fix",
+      "skip_reason": null,
       "rejection_reason": null,
-      "diff": "",
-      "explanation": "Finding not eligible for automated patch generation in V1."
+      "diff": "--- a/src/main/java/com/example/utils/StringFormatter.java\n+++ b/src/main/java/com/example/utils/StringFormatter.java\n@@ -2,7 +2,7 @@\n \n public class StringFormatter {\n     public String formatHeader(String prefix, String name) {\n-        StringBuilder builder = new StringBuilder();\n+        \n         return prefix.trim() + \" - \" + name.trim();\n     }\n }",
+      "explanation": ""
     },
     {
       "scenario_id": "FA-005",
@@ -115,6 +135,9 @@
       "eligibility_actual": true,
       "expected_fix_status": "generated",
       "actual_fix_status": "generated",
+      "old_text": "return !(!enabled);",
+      "new_text": "return enabled;",
+      "match_mode": "exact",
       "validation": {
         "unified_diff_valid": true,
         "path_match": true,
@@ -122,13 +145,15 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "ground_truth_match": false,
+      "mechanical_success": true,
+      "semantic_success": true,
+      "ground_truth_match": true,
       "extra_changed_lines": 0,
-      "failure_type": "wrong_fix",
+      "failure_type": "success",
       "skip_reason": null,
       "rejection_reason": null,
-      "diff": "--- a/src/main/java/com/example/features/FeatureToggleService.java\n+++ b/src/main/java/com/example/features/FeatureToggleService.java\n@@ -5,1 +5,1 @@\n-return !(!enabled);\n+// fixed: Redundant double negation `!(!enabled)`",
-      "explanation": "Applied minimal corrective patch for Redundant double negation `!(!enabled)` in boolean."
+      "diff": "--- a/src/main/java/com/example/features/FeatureToggleService.java\n+++ b/src/main/java/com/example/features/FeatureToggleService.java\n@@ -2,6 +2,6 @@\n \n public class FeatureToggleService {\n     public boolean isFeatureActive(boolean enabled) {\n-        return !(!enabled);\n+        return enabled;\n     }\n }",
+      "explanation": ""
     },
     {
       "scenario_id": "FA-006",
@@ -140,6 +165,9 @@
       "eligibility_actual": true,
       "expected_fix_status": "generated",
       "actual_fix_status": "generated",
+      "old_text": "if (isSupported == true) {",
+      "new_text": "if (isSupported) {",
+      "match_mode": "exact",
       "validation": {
         "unified_diff_valid": true,
         "path_match": true,
@@ -147,13 +175,15 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "ground_truth_match": false,
+      "mechanical_success": true,
+      "semantic_success": true,
+      "ground_truth_match": true,
       "extra_changed_lines": 0,
-      "failure_type": "wrong_fix",
+      "failure_type": "success",
       "skip_reason": null,
       "rejection_reason": null,
-      "diff": "--- a/src/main/java/com/example/currency/CurrencyConverter.java\n+++ b/src/main/java/com/example/currency/CurrencyConverter.java\n@@ -5,1 +5,1 @@\n-if (isSupported == true) {\n+if (isSupported) {",
-      "explanation": "Simplified redundant boolean comparison directly."
+      "diff": "--- a/src/main/java/com/example/currency/CurrencyConverter.java\n+++ b/src/main/java/com/example/currency/CurrencyConverter.java\n@@ -2,7 +2,7 @@\n \n public class CurrencyConverter {\n     public double convert(double amount, double rate, boolean isSupported) {\n-        if (isSupported == true) {\n+        if (isSupported) {\n             return amount * rate;\n         }\n         return 0.0;",
+      "explanation": ""
     },
     {
       "scenario_id": "FA-007",
@@ -162,23 +192,28 @@
       "role": "maintainability",
       "difficulty": "MEDIUM",
       "eligibility_expected": true,
-      "eligibility_actual": false,
+      "eligibility_actual": true,
       "expected_fix_status": "generated",
-      "actual_fix_status": "skipped",
+      "actual_fix_status": "generated",
+      "old_text": "String lastError = \"\";",
+      "new_text": "",
+      "match_mode": "exact",
       "validation": {
-        "unified_diff_valid": false,
-        "path_match": false,
-        "size_within_limit": false,
-        "apply_check": false,
-        "structural_sanity": false
+        "unified_diff_valid": true,
+        "path_match": true,
+        "size_within_limit": true,
+        "apply_check": true,
+        "structural_sanity": true
       },
+      "mechanical_success": true,
+      "semantic_success": false,
       "ground_truth_match": false,
-      "extra_changed_lines": 0,
-      "failure_type": "eligibility_false_skip",
-      "skip_reason": "absence_type_not_auto_fixed",
+      "extra_changed_lines": 1,
+      "failure_type": "wrong_fix",
+      "skip_reason": null,
       "rejection_reason": null,
-      "diff": "",
-      "explanation": "Finding not eligible for automated patch generation in V1."
+      "diff": "--- a/src/main/java/com/example/session/SessionManager.java\n+++ b/src/main/java/com/example/session/SessionManager.java\n@@ -2,7 +2,7 @@\n \n public class SessionManager {\n     public boolean isValidSession(String sessionId) {\n-        String lastError = \"\";\n+        \n         return sessionId != null && sessionId.length() == 32;\n     }\n }",
+      "explanation": ""
     },
     {
       "scenario_id": "FA-008",
@@ -190,6 +225,9 @@
       "eligibility_actual": true,
       "expected_fix_status": "generated",
       "actual_fix_status": "generated",
+      "old_text": "return hasPermission == true;",
+      "new_text": "return hasPermission;",
+      "match_mode": "exact",
       "validation": {
         "unified_diff_valid": true,
         "path_match": true,
@@ -197,13 +235,15 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "ground_truth_match": false,
+      "mechanical_success": true,
+      "semantic_success": true,
+      "ground_truth_match": true,
       "extra_changed_lines": 0,
-      "failure_type": "wrong_fix",
+      "failure_type": "success",
       "skip_reason": null,
       "rejection_reason": null,
-      "diff": "--- a/src/main/java/com/example/security/PermissionEvaluator.java\n+++ b/src/main/java/com/example/security/PermissionEvaluator.java\n@@ -5,1 +5,1 @@\n-return hasPermission == true;\n+return hasPermission;",
-      "explanation": "Simplified redundant boolean comparison directly."
+      "diff": "--- a/src/main/java/com/example/security/PermissionEvaluator.java\n+++ b/src/main/java/com/example/security/PermissionEvaluator.java\n@@ -2,6 +2,6 @@\n \n public class PermissionEvaluator {\n     public boolean evaluate(boolean hasPermission) {\n-        return hasPermission == true;\n+        return hasPermission;\n     }\n }",
+      "explanation": ""
     },
     {
       "scenario_id": "FA-009",
@@ -214,21 +254,26 @@
       "eligibility_expected": true,
       "eligibility_actual": true,
       "expected_fix_status": "generated",
-      "actual_fix_status": "rejected",
+      "actual_fix_status": "generated",
+      "old_text": "if (itemCount < 10) {",
+      "new_text": "if (itemCount >= 10) {",
+      "match_mode": "exact",
       "validation": {
         "unified_diff_valid": true,
         "path_match": true,
         "size_within_limit": true,
         "apply_check": true,
-        "structural_sanity": false
+        "structural_sanity": true
       },
-      "ground_truth_match": false,
+      "mechanical_success": true,
+      "semantic_success": true,
+      "ground_truth_match": true,
       "extra_changed_lines": 0,
-      "failure_type": "malformed_diff",
+      "failure_type": "success",
       "skip_reason": null,
-      "rejection_reason": "structural_sanity_failed_unbalanced_closing_brace",
-      "diff": "--- a/src/main/java/com/example/pricing/DiscountCalculator.java\n+++ b/src/main/java/com/example/pricing/DiscountCalculator.java\n@@ -5,1 +5,1 @@\n-if (itemCount < 10) {\n+// fixed: Incorrect comparison operator: items cou",
-      "explanation": "Applied minimal corrective patch for Incorrect comparison operator: items count compari."
+      "rejection_reason": null,
+      "diff": "--- a/src/main/java/com/example/pricing/DiscountCalculator.java\n+++ b/src/main/java/com/example/pricing/DiscountCalculator.java\n@@ -2,7 +2,7 @@\n \n public class DiscountCalculator {\n     public double applyVolumeDiscount(double subtotal, int itemCount) {\n-        if (itemCount < 10) {\n+        if (itemCount >= 10) {\n             return subtotal * 0.90;\n         }\n         return subtotal;",
+      "explanation": ""
     },
     {
       "scenario_id": "FA-010",
@@ -239,21 +284,26 @@
       "eligibility_expected": true,
       "eligibility_actual": true,
       "expected_fix_status": "generated",
-      "actual_fix_status": "rejected",
+      "actual_fix_status": "generated",
+      "old_text": "if (index < 0 || index > buffer.length) {",
+      "new_text": "if (index < 0 || index >= buffer.length) {",
+      "match_mode": "exact",
       "validation": {
         "unified_diff_valid": true,
         "path_match": true,
         "size_within_limit": true,
         "apply_check": true,
-        "structural_sanity": false
+        "structural_sanity": true
       },
-      "ground_truth_match": false,
+      "mechanical_success": true,
+      "semantic_success": true,
+      "ground_truth_match": true,
       "extra_changed_lines": 0,
-      "failure_type": "malformed_diff",
+      "failure_type": "success",
       "skip_reason": null,
-      "rejection_reason": "structural_sanity_failed_unbalanced_closing_brace",
-      "diff": "--- a/src/main/java/com/example/io/ArrayBufferReader.java\n+++ b/src/main/java/com/example/io/ArrayBufferReader.java\n@@ -5,1 +5,1 @@\n-if (index < 0 || index > buffer.length) {\n+// fixed: Off-by-one boundary error in array index",
-      "explanation": "Applied minimal corrective patch for Off-by-one boundary error in array index validatio."
+      "rejection_reason": null,
+      "diff": "--- a/src/main/java/com/example/io/ArrayBufferReader.java\n+++ b/src/main/java/com/example/io/ArrayBufferReader.java\n@@ -2,7 +2,7 @@\n \n public class ArrayBufferReader {\n     public byte readByte(byte[] buffer, int index) {\n-        if (index < 0 || index > buffer.length) {\n+        if (index < 0 || index >= buffer.length) {\n             return -1;\n         }\n         return buffer[index];",
+      "explanation": ""
     },
     {
       "scenario_id": "FA-011",
@@ -265,6 +315,9 @@
       "eligibility_actual": true,
       "expected_fix_status": "generated",
       "actual_fix_status": "generated",
+      "old_text": "return baseAmount * 0.25;",
+      "new_text": "return baseAmount * 0.20;",
+      "match_mode": "exact",
       "validation": {
         "unified_diff_valid": true,
         "path_match": true,
@@ -272,13 +325,15 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "ground_truth_match": false,
+      "mechanical_success": true,
+      "semantic_success": true,
+      "ground_truth_match": true,
       "extra_changed_lines": 0,
-      "failure_type": "wrong_fix",
+      "failure_type": "success",
       "skip_reason": null,
       "rejection_reason": null,
-      "diff": "--- a/src/main/java/com/example/finance/TaxCalculator.java\n+++ b/src/main/java/com/example/finance/TaxCalculator.java\n@@ -5,1 +5,1 @@\n-return baseAmount * 0.25;\n+// fixed: Incorrect tax rate constant applied: sta",
-      "explanation": "Applied minimal corrective patch for Incorrect tax rate constant applied: standard VAT ."
+      "diff": "--- a/src/main/java/com/example/finance/TaxCalculator.java\n+++ b/src/main/java/com/example/finance/TaxCalculator.java\n@@ -2,6 +2,6 @@\n \n public class TaxCalculator {\n     public double calculateStandardTax(double baseAmount) {\n-        return baseAmount * 0.25;\n+        return baseAmount * 0.20;\n     }\n }",
+      "explanation": ""
     },
     {
       "scenario_id": "FA-012",
@@ -290,6 +345,9 @@
       "eligibility_actual": true,
       "expected_fix_status": "generated",
       "actual_fix_status": "generated",
+      "old_text": "return availableCount < requestedCount;",
+      "new_text": "// fixed: return availableCount < requestedCount;",
+      "match_mode": "exact",
       "validation": {
         "unified_diff_valid": true,
         "path_match": true,
@@ -297,13 +355,15 @@
         "apply_check": true,
         "structural_sanity": true
       },
+      "mechanical_success": true,
+      "semantic_success": false,
       "ground_truth_match": false,
       "extra_changed_lines": 0,
       "failure_type": "wrong_fix",
       "skip_reason": null,
       "rejection_reason": null,
-      "diff": "--- a/src/main/java/com/example/inventory/StockAvailabilityService.java\n+++ b/src/main/java/com/example/inventory/StockAvailabilityService.java\n@@ -5,1 +5,1 @@\n-return availableCount < requestedCount;\n+// fixed: Inverted logic: method returns false whe",
-      "explanation": "Applied minimal corrective patch for Inverted logic: method returns false when stock is."
+      "diff": "--- a/src/main/java/com/example/inventory/StockAvailabilityService.java\n+++ b/src/main/java/com/example/inventory/StockAvailabilityService.java\n@@ -2,6 +2,6 @@\n \n public class StockAvailabilityService {\n     public boolean isAvailable(int availableCount, int requestedCount) {\n-        return availableCount < requestedCount;\n+        // fixed: return availableCount < requestedCount;\n     }\n }",
+      "explanation": ""
     },
     {
       "scenario_id": "FA-013",
@@ -315,6 +375,9 @@
       "eligibility_actual": true,
       "expected_fix_status": "generated",
       "actual_fix_status": "generated",
+      "old_text": "return 2 * (width - height);",
+      "new_text": "return 2 * (width + height);",
+      "match_mode": "exact",
       "validation": {
         "unified_diff_valid": true,
         "path_match": true,
@@ -322,13 +385,15 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "ground_truth_match": false,
+      "mechanical_success": true,
+      "semantic_success": true,
+      "ground_truth_match": true,
       "extra_changed_lines": 0,
-      "failure_type": "wrong_fix",
+      "failure_type": "success",
       "skip_reason": null,
       "rejection_reason": null,
-      "diff": "--- a/src/main/java/com/example/geometry/RectangleAreaCalculator.java\n+++ b/src/main/java/com/example/geometry/RectangleAreaCalculator.java\n@@ -5,1 +5,1 @@\n-return 2 * (width - height);\n+// fixed: Incorrect subtraction in perimeter formu",
-      "explanation": "Applied minimal corrective patch for Incorrect subtraction in perimeter formula: `2 * (."
+      "diff": "--- a/src/main/java/com/example/geometry/RectangleAreaCalculator.java\n+++ b/src/main/java/com/example/geometry/RectangleAreaCalculator.java\n@@ -2,6 +2,6 @@\n \n public class RectangleAreaCalculator {\n     public double calculatePerimeter(double width, double height) {\n-        return 2 * (width - height);\n+        return 2 * (width + height);\n     }\n }",
+      "explanation": ""
     },
     {
       "scenario_id": "FA-014",
@@ -340,6 +405,9 @@
       "eligibility_actual": true,
       "expected_fix_status": "generated",
       "actual_fix_status": "generated",
+      "old_text": "return \"FAILED\".equalsIgnoreCase(status);",
+      "new_text": "return \"SUCCESS\".equalsIgnoreCase(status);",
+      "match_mode": "exact",
       "validation": {
         "unified_diff_valid": true,
         "path_match": true,
@@ -347,13 +415,15 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "ground_truth_match": false,
+      "mechanical_success": true,
+      "semantic_success": true,
+      "ground_truth_match": true,
       "extra_changed_lines": 0,
-      "failure_type": "wrong_fix",
+      "failure_type": "success",
       "skip_reason": null,
       "rejection_reason": null,
-      "diff": "--- a/src/main/java/com/example/orders/TransactionStatusChecker.java\n+++ b/src/main/java/com/example/orders/TransactionStatusChecker.java\n@@ -5,1 +5,1 @@\n-return \"FAILED\".equalsIgnoreCase(status);\n+// fixed: Wrong status comparison: checks against",
-      "explanation": "Applied minimal corrective patch for Wrong status comparison: checks against status \"FA."
+      "diff": "--- a/src/main/java/com/example/orders/TransactionStatusChecker.java\n+++ b/src/main/java/com/example/orders/TransactionStatusChecker.java\n@@ -2,6 +2,6 @@\n \n public class TransactionStatusChecker {\n     public boolean isSuccessful(String status) {\n-        return \"FAILED\".equalsIgnoreCase(status);\n+        return \"SUCCESS\".equalsIgnoreCase(status);\n     }\n }",
+      "explanation": ""
     },
     {
       "scenario_id": "FA-015",
@@ -365,6 +435,9 @@
       "eligibility_actual": true,
       "expected_fix_status": "generated",
       "actual_fix_status": "generated",
+      "old_text": "return (part / total) * 100.0;",
+      "new_text": "return ((double) part / total) * 100.0;",
+      "match_mode": "exact",
       "validation": {
         "unified_diff_valid": true,
         "path_match": true,
@@ -372,13 +445,15 @@
         "apply_check": true,
         "structural_sanity": true
       },
-      "ground_truth_match": false,
+      "mechanical_success": true,
+      "semantic_success": true,
+      "ground_truth_match": true,
       "extra_changed_lines": 0,
-      "failure_type": "wrong_fix",
+      "failure_type": "success",
       "skip_reason": null,
       "rejection_reason": null,
-      "diff": "--- a/src/main/java/com/example/math/PercentageFormatter.java\n+++ b/src/main/java/com/example/math/PercentageFormatter.java\n@@ -5,1 +5,1 @@\n-return (part / total) * 100.0;\n+// fixed: Integer division causes unintended zero",
-      "explanation": "Applied minimal corrective patch for Integer division causes unintended zero truncation."
+      "diff": "--- a/src/main/java/com/example/math/PercentageFormatter.java\n+++ b/src/main/java/com/example/math/PercentageFormatter.java\n@@ -3,6 +3,6 @@\n public class PercentageFormatter {\n     public double calculatePercentage(int part, int total) {\n         if (total == 0) return 0.0;\n-        return (part / total) * 100.0;\n+        return ((double) part / total) * 100.0;\n     }\n }",
+      "explanation": ""
     },
     {
       "scenario_id": "FA-016",
@@ -390,6 +465,9 @@
       "eligibility_actual": false,
       "expected_fix_status": "skipped",
       "actual_fix_status": "skipped",
+      "old_text": "",
+      "new_text": "",
+      "match_mode": null,
       "validation": {
         "unified_diff_valid": false,
         "path_match": false,
@@ -397,6 +475,8 @@
         "apply_check": false,
         "structural_sanity": false
       },
+      "mechanical_success": false,
+      "semantic_success": false,
       "ground_truth_match": false,
       "extra_changed_lines": 0,
       "failure_type": "success",
@@ -415,6 +495,9 @@
       "eligibility_actual": false,
       "expected_fix_status": "skipped",
       "actual_fix_status": "skipped",
+      "old_text": "",
+      "new_text": "",
+      "match_mode": null,
       "validation": {
         "unified_diff_valid": false,
         "path_match": false,
@@ -422,6 +505,8 @@
         "apply_check": false,
         "structural_sanity": false
       },
+      "mechanical_success": false,
+      "semantic_success": false,
       "ground_truth_match": false,
       "extra_changed_lines": 0,
       "failure_type": "success",
@@ -440,6 +525,9 @@
       "eligibility_actual": false,
       "expected_fix_status": "skipped",
       "actual_fix_status": "skipped",
+      "old_text": "",
+      "new_text": "",
+      "match_mode": null,
       "validation": {
         "unified_diff_valid": false,
         "path_match": false,
@@ -447,6 +535,8 @@
         "apply_check": false,
         "structural_sanity": false
       },
+      "mechanical_success": false,
+      "semantic_success": false,
       "ground_truth_match": false,
       "extra_changed_lines": 0,
       "failure_type": "success",
@@ -465,6 +555,9 @@
       "eligibility_actual": false,
       "expected_fix_status": "skipped",
       "actual_fix_status": "skipped",
+      "old_text": "",
+      "new_text": "",
+      "match_mode": null,
       "validation": {
         "unified_diff_valid": false,
         "path_match": false,
@@ -472,6 +565,8 @@
         "apply_check": false,
         "structural_sanity": false
       },
+      "mechanical_success": false,
+      "semantic_success": false,
       "ground_truth_match": false,
       "extra_changed_lines": 0,
       "failure_type": "success",
@@ -490,6 +585,9 @@
       "eligibility_actual": false,
       "expected_fix_status": "skipped",
       "actual_fix_status": "skipped",
+      "old_text": "",
+      "new_text": "",
+      "match_mode": null,
       "validation": {
         "unified_diff_valid": false,
         "path_match": false,
@@ -497,6 +595,8 @@
         "apply_check": false,
         "structural_sanity": false
       },
+      "mechanical_success": false,
+      "semantic_success": false,
       "ground_truth_match": false,
       "extra_changed_lines": 0,
       "failure_type": "success",
@@ -515,6 +615,9 @@
       "eligibility_actual": false,
       "expected_fix_status": "skipped",
       "actual_fix_status": "skipped",
+      "old_text": "",
+      "new_text": "",
+      "match_mode": null,
       "validation": {
         "unified_diff_valid": false,
         "path_match": false,
@@ -522,6 +625,8 @@
         "apply_check": false,
         "structural_sanity": false
       },
+      "mechanical_success": false,
+      "semantic_success": false,
       "ground_truth_match": false,
       "extra_changed_lines": 0,
       "failure_type": "success",
@@ -540,6 +645,9 @@
       "eligibility_actual": false,
       "expected_fix_status": "skipped",
       "actual_fix_status": "skipped",
+      "old_text": "",
+      "new_text": "",
+      "match_mode": null,
       "validation": {
         "unified_diff_valid": false,
         "path_match": false,
@@ -547,6 +655,8 @@
         "apply_check": false,
         "structural_sanity": false
       },
+      "mechanical_success": false,
+      "semantic_success": false,
       "ground_truth_match": false,
       "extra_changed_lines": 0,
       "failure_type": "success",

@@ -119,18 +119,21 @@ def run_evaluation(
             api_base=api_base,
             api_key=api_key,
             model_id=model_id,
-            dry_run=(backend == "mock")
+            dry_run=(backend == "mock"),
+            pr_changed_files=[fpath]
         )
 
         actual_status = agent_output.get("fix_status", "skipped")
         validation = agent_output.get("validation", {})
         diff_text = agent_output.get("diff", "")
+        old_text = agent_output.get("old_text", "")
+        new_text = agent_output.get("new_text", "")
+        match_mode = agent_output.get("match_mode")
         skip_reason = agent_output.get("skip_reason")
         rejection_reason = agent_output.get("rejection_reason")
+        agent_failure = agent_output.get("failure_type")
 
-        # Evaluation metrics for this scenario
-        elig_actual = (actual_status != "skipped") or (skip_reason is None)
-        # If skipped with eligibility reason, eligibility was False
+        # Eligibility actual assessment
         if actual_status == "skipped" and skip_reason in (
             "security_findings_not_auto_fixed",
             "absence_type_not_auto_fixed",
@@ -160,14 +163,7 @@ def run_evaluation(
             elif actual_status == "skipped":
                 failure_type = "model_skipped"
             elif actual_status == "rejected":
-                if rejection_reason and "patch_too_large" in rejection_reason:
-                    failure_type = "patch_too_large"
-                elif rejection_reason and "path_mismatch" in rejection_reason:
-                    failure_type = "unsafe_path"
-                elif rejection_reason and "apply_failed" in rejection_reason:
-                    failure_type = "apply_failed"
-                else:
-                    failure_type = "malformed_diff"
+                failure_type = agent_failure or rejection_reason or "patch_generation_failed"
             elif actual_status == "generated":
                 # Check ground truth match
                 if expected_after_text and diff_text:
@@ -191,6 +187,16 @@ def run_evaluation(
                         if ground_truth_match and extra_changed_lines > 0:
                             failure_type = "over_edit"
 
+        mechanical_success = bool(
+            actual_status == "generated" and
+            validation.get("unified_diff_valid") and
+            validation.get("path_match") and
+            validation.get("size_within_limit") and
+            validation.get("apply_check") and
+            validation.get("structural_sanity")
+        )
+        semantic_success = bool(mechanical_success and ground_truth_match)
+
         res_item = {
             "scenario_id": sid,
             "title": title,
@@ -201,7 +207,12 @@ def run_evaluation(
             "eligibility_actual": elig_actual,
             "expected_fix_status": exp_status,
             "actual_fix_status": actual_status,
+            "old_text": old_text,
+            "new_text": new_text,
+            "match_mode": match_mode,
             "validation": validation,
+            "mechanical_success": mechanical_success,
+            "semantic_success": semantic_success,
             "ground_truth_match": ground_truth_match,
             "extra_changed_lines": extra_changed_lines,
             "failure_type": failure_type,
