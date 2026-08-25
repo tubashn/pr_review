@@ -1,0 +1,336 @@
+"""
+Evaluation Metrics Computation & Report Generator for Fix Agent Benchmark V2
+Computes:
+1. Multi-Tier Semantic Metrics (Canonical, Token-Equivalent, Semantic Oracle on Applicable Denominator)
+2. Mechanical Quality Metrics (Diff Valid, Safety, Apply Success, Size Constraint)
+3. Corrected Category Breakdown with Separate Eligible & Ineligible Denominators
+4. Difficulty Breakdown (EASY, MEDIUM, HARD)
+5. Fix Complexity Breakdown (single_line, multi_line, boundary)
+6. Alternative-Valid Fix Breakdown
+7. Raw Numerator/Denominator Statistical Metadata for Exact Binomial CI Analysis
+"""
+
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+from typing import Dict, Any, List, Optional
+
+BENCHMARK_DIR = Path(__file__).resolve().parent
+SCENARIOS_FILE = BENCHMARK_DIR / "scenarios.json"
+
+
+def load_scenario_map() -> Dict[str, Any]:
+    if SCENARIOS_FILE.exists():
+        scs = json.loads(SCENARIOS_FILE.read_text(encoding="utf-8")).get("scenarios", [])
+        return {s["scenario_id"]: s for s in scs}
+    return {}
+
+
+def compute_metrics(results_data: Dict[str, Any]) -> Dict[str, Any]:
+    results = results_data.get("results", [])
+    split = results_data.get("split", "DEV")
+    backend = results_data.get("backend", "unknown")
+    total_scenarios = len(results)
+
+    # 1. Gate & Scope
+    eligible_scenarios = [r for r in results if r.get("eligibility_expected", True)]
+    ineligible_scenarios = [r for r in results if not r.get("eligibility_expected", True)]
+
+    eligible_count = len(eligible_scenarios)
+    ineligible_count = len(ineligible_scenarios)
+
+    correct_eligibility = sum(1 for r in results if r.get("eligibility_correct", False))
+    safe_skips = sum(1 for r in ineligible_scenarios if r.get("actual_fix_status") == "skipped")
+
+    eligibility_accuracy = correct_eligibility / total_scenarios if total_scenarios else 0.0
+    safe_skip_rate = safe_skips / ineligible_count if ineligible_count else 1.0
+
+    # 2. Mechanical Quality (on Eligible Scenarios)
+    generated_count = sum(1 for r in eligible_scenarios if r.get("actual_fix_status") == "generated")
+    valid_diff_count = sum(1 for r in eligible_scenarios if r.get("validation", {}).get("unified_diff_valid", False))
+    path_safe_count = sum(1 for r in eligible_scenarios if r.get("validation", {}).get("path_match", False))
+    size_safe_count = sum(1 for r in eligible_scenarios if r.get("validation", {}).get("size_within_limit", False))
+    apply_clean_count = sum(1 for r in eligible_scenarios if r.get("validation", {}).get("apply_check", False))
+    mechanical_success_count = sum(1 for r in eligible_scenarios if r.get("mechanical_success", False))
+
+    # 3. Multi-Tier Semantic Correctness (on Eligible Scenarios)
+    canonical_match_count = sum(1 for r in eligible_scenarios if r.get("canonical_source_match", False))
+    token_equiv_match_count = sum(1 for r in eligible_scenarios if r.get("token_equivalent", False))
+    
+    oracle_applicable_count = sum(1 for r in eligible_scenarios if r.get("oracle_applicable", False))
+    oracle_pass_count = sum(1 for r in eligible_scenarios if r.get("semantic_oracle_pass", False))
+    
+    semantic_accepted_fix_count = sum(1 for r in eligible_scenarios if r.get("semantic_match", False))
+    semantic_review_req_count = sum(1 for r in eligible_scenarios if r.get("failure_subtype") == "semantic_review_required")
+    confirmed_wrong_fix_count = sum(1 for r in eligible_scenarios if r.get("failure_subtype") == "wrong_fix")
+
+    # Oracle pass rate: denominator is strictly applicable scenarios
+    if oracle_applicable_count > 0:
+        oracle_pass_rate = oracle_pass_count / oracle_applicable_count
+    else:
+        oracle_pass_rate = None
+
+    # Success mode breakdown
+    success_modes = {
+        "canonical": canonical_match_count,
+        "token_equivalent": sum(1 for r in eligible_scenarios if r.get("semantic_match_mode") == "token_equivalent"),
+        "semantic_oracle": sum(1 for r in eligible_scenarios if r.get("semantic_match_mode") == "semantic_oracle"),
+        "semantic_review_required": semantic_review_req_count,
+        "wrong_fix": confirmed_wrong_fix_count
+    }
+
+    # Taxonomy breakdown
+    taxonomy = {}
+    for r in results:
+        ftype = r.get("failure_subtype", r.get("failure_type", "unknown"))
+        taxonomy[ftype] = taxonomy.get(ftype, 0) + 1
+
+    # 4. Category Breakdown with Correct Denominators
+    category_breakdown = {}
+    for r in results:
+        role = r.get("role", "unknown")
+        if role not in category_breakdown:
+            category_breakdown[role] = {
+                "total": 0,
+                "eligible": 0,
+                "ineligible": 0,
+                "mechanical_success": 0,
+                "canonical_match": 0,
+                "semantic_accepted": 0,
+                "safe_skips": 0
+            }
+        cat = category_breakdown[role]
+        cat["total"] += 1
+        is_elig = r.get("eligibility_expected", True)
+        if is_elig:
+            cat["eligible"] += 1
+            if r.get("mechanical_success", False):
+                cat["mechanical_success"] += 1
+            if r.get("canonical_source_match", False):
+                cat["canonical_match"] += 1
+            if r.get("semantic_match", False):
+                cat["semantic_accepted"] += 1
+        else:
+            cat["ineligible"] += 1
+            if r.get("actual_fix_status") == "skipped":
+                cat["safe_skips"] += 1
+
+    # 5. Difficulty Breakdown
+    difficulty_breakdown = {}
+    for r in results:
+        diff = r.get("difficulty", "MEDIUM")
+        if diff not in difficulty_breakdown:
+            difficulty_breakdown[diff] = {
+                "total": 0,
+                "eligible": 0,
+                "ineligible": 0,
+                "mechanical_success": 0,
+                "semantic_accepted": 0,
+                "safe_skips": 0
+            }
+        db = difficulty_breakdown[diff]
+        db["total"] += 1
+        if r.get("eligibility_expected", True):
+            db["eligible"] += 1
+            if r.get("mechanical_success", False):
+                db["mechanical_success"] += 1
+            if r.get("semantic_match", False):
+                db["semantic_accepted"] += 1
+        else:
+            db["ineligible"] += 1
+            if r.get("actual_fix_status") == "skipped":
+                db["safe_skips"] += 1
+
+    # 6. Fix Complexity Breakdown (Eligible only)
+    complexity_breakdown = {}
+    for r in eligible_scenarios:
+        comp = r.get("fix_complexity", "single_line")
+        if comp not in complexity_breakdown:
+            complexity_breakdown[comp] = {
+                "eligible_count": 0,
+                "mechanical_success": 0,
+                "semantic_accepted": 0,
+                "review_required": 0,
+                "wrong_fix": 0
+            }
+        cb = complexity_breakdown[comp]
+        cb["eligible_count"] += 1
+        if r.get("mechanical_success", False):
+            cb["mechanical_success"] += 1
+        if r.get("semantic_match", False):
+            cb["semantic_accepted"] += 1
+        if r.get("failure_subtype") == "semantic_review_required":
+            cb["review_required"] += 1
+        if r.get("failure_subtype") == "wrong_fix":
+            cb["wrong_fix"] += 1
+
+    # 7. Alternative-Valid Breakdown (Eligible only)
+    alt_valid_scenarios = [r for r in eligible_scenarios if r.get("alternative_valid_fix", False)]
+    alt_valid_breakdown = {
+        "total_alt_valid": len(alt_valid_scenarios),
+        "canonical_success": sum(1 for r in alt_valid_scenarios if r.get("canonical_source_match", False)),
+        "token_success": sum(1 for r in alt_valid_scenarios if r.get("semantic_match_mode") == "token_equivalent"),
+        "oracle_success": sum(1 for r in alt_valid_scenarios if r.get("semantic_match_mode") == "semantic_oracle"),
+        "review_required": sum(1 for r in alt_valid_scenarios if r.get("failure_subtype") == "semantic_review_required"),
+        "wrong_fix": sum(1 for r in alt_valid_scenarios if r.get("failure_subtype") == "wrong_fix")
+    }
+
+    # Summary dictionary with statistical raw counts
+    summary = {
+        "split": split,
+        "backend": backend,
+        "total_scenarios": total_scenarios,
+        "eligible_count": eligible_count,
+        "ineligible_count": ineligible_count,
+        "eligibility_accuracy": {
+            "passed": correct_eligibility,
+            "total": total_scenarios,
+            "rate": eligibility_accuracy
+        },
+        "safe_skip_rate": {
+            "passed": safe_skips,
+            "total": ineligible_count,
+            "rate": safe_skip_rate
+        },
+        "mechanical_success": {
+            "passed": mechanical_success_count,
+            "total": eligible_count,
+            "rate": mechanical_success_count / eligible_count if eligible_count else 0.0
+        },
+        "canonical_source_match": {
+            "passed": canonical_match_count,
+            "total": eligible_count,
+            "rate": canonical_match_count / eligible_count if eligible_count else 0.0
+        },
+        "token_equivalent_match": {
+            "passed": token_equiv_match_count,
+            "total": eligible_count,
+            "rate": token_equiv_match_count / eligible_count if eligible_count else 0.0
+        },
+        "deterministic_semantic_oracle": {
+            "passed": oracle_pass_count,
+            "applicable": oracle_applicable_count,
+            "rate": oracle_pass_rate
+        },
+        "automated_semantic_accepted": {
+            "passed": semantic_accepted_fix_count,
+            "total": eligible_count,
+            "rate": semantic_accepted_fix_count / eligible_count if eligible_count else 0.0
+        },
+        "semantic_review_required_count": semantic_review_req_count,
+        "confirmed_wrong_fix_count": confirmed_wrong_fix_count,
+        "success_modes": success_modes
+    }
+
+    return {
+        "benchmark_version": "2.0",
+        "summary": summary,
+        "taxonomy": taxonomy,
+        "category_breakdown": category_breakdown,
+        "difficulty_breakdown": difficulty_breakdown,
+        "complexity_breakdown": complexity_breakdown,
+        "alternative_valid_breakdown": alt_valid_breakdown
+    }
+
+
+def print_evaluation_report(metrics: Dict[str, Any]):
+    sm = metrics["summary"]
+    smodes = sm["success_modes"]
+
+    print("==================================================")
+    print(f"FIX AGENT BENCHMARK V2 MULTI-TIER EVALUATION REPORT ({sm['split']} / {sm['backend']})")
+    print("==================================================")
+    print(f"Total Scenarios Evaluated             : {sm['total_scenarios']}")
+    print(f"  Eligible Scenarios                  : {sm['eligible_count']}")
+    print(f"  Ineligible (Expected-Skip)          : {sm['ineligible_count']}")
+    print("--------------------------------------------------")
+    print("1. GATE & SCOPE FILTERING:")
+    ea = sm["eligibility_accuracy"]
+    ssr = sm["safe_skip_rate"]
+    print(f"  Eligibility Gate Accuracy           : {ea['rate'] * 100:.1f}% ({ea['passed']}/{ea['total']})")
+    print(f"  Safe Skip Rate (on Ineligible)      : {ssr['rate'] * 100:.1f}% ({ssr['passed']}/{ssr['total']})")
+    print("--------------------------------------------------")
+    print("2. MECHANICAL QUALITY (on Eligible Scenarios):")
+    ms = sm["mechanical_success"]
+    print(f"  [METRIC] Mechanical Success Rate    : {ms['rate'] * 100:.1f}% ({ms['passed']}/{ms['total']})")
+    print("--------------------------------------------------")
+    print("3. MULTI-TIER SEMANTIC CORRECTNESS (on Eligible Scenarios):")
+    csm = sm["canonical_source_match"]
+    tem = sm["token_equivalent_match"]
+    dso = sm["deterministic_semantic_oracle"]
+    asa = sm["automated_semantic_accepted"]
+
+    print(f"  Tier 1 - Canonical Source Match Rate: {csm['rate'] * 100:.1f}% ({csm['passed']}/{csm['total']})")
+    print(f"  Tier 2 - Token Equivalent Match Rate: {tem['rate'] * 100:.1f}% ({tem['passed']}/{tem['total']})")
+    if dso["applicable"] > 0:
+        print(f"  Tier 3 - Deterministic Semantic Oracle: {dso['rate'] * 100:.1f}% ({dso['passed']}/{dso['applicable']} applicable)")
+    else:
+        print("  Tier 3 - Deterministic Semantic Oracle: N/A (0 applicable scenarios)")
+    print("  ------------------------------------------------")
+    print(f"  [METRIC] Automated Semantic Accepted: {asa['rate'] * 100:.1f}% ({asa['passed']}/{asa['total']})")
+    print(f"  [STATUS] Semantic Review Required   : {sm['semantic_review_required_count']}")
+    print(f"  [STATUS] Confirmed Wrong Fix        : {sm['confirmed_wrong_fix_count']}")
+    print("--------------------------------------------------")
+    print("4. SUCCESS MODE BREAKDOWN:")
+    for mode, count in smodes.items():
+        print(f"  - {mode:<35} : {count}")
+    print("--------------------------------------------------")
+    print("5. CATEGORY BREAKDOWN (Separate Eligible & Ineligible Denominators):")
+    for cat, data in metrics["category_breakdown"].items():
+        elig_str = f"{data['mechanical_success']}/{data['eligible']} mech, {data['semantic_accepted']}/{data['eligible']} semantic" if data['eligible'] > 0 else "0 eligible"
+        inelig_str = f"{data['safe_skips']}/{data['ineligible']} safe-skips" if data['ineligible'] > 0 else "0 inelig"
+        print(f"  - {cat:<24} : [Eligible: {elig_str}] [Ineligible: {inelig_str}]")
+    print("--------------------------------------------------")
+    print("6. DIFFICULTY BREAKDOWN:")
+    for diff, data in metrics["difficulty_breakdown"].items():
+        print(f"  - {diff:<8} : Total={data['total']} (Eligible={data['eligible']}, Mech={data['mechanical_success']}, SemAccepted={data['semantic_accepted']}, SafeSkips={data['safe_skips']}/{data['ineligible']})")
+    print("--------------------------------------------------")
+    print("7. FIX COMPLEXITY BREAKDOWN (Eligible Scenarios):")
+    for comp, data in metrics["complexity_breakdown"].items():
+        print(f"  - {comp:<14} : Total={data['eligible_count']}, Mech={data['mechanical_success']}, SemAccepted={data['semantic_accepted']}, ReviewReq={data['review_required']}, Wrong={data['wrong_fix']}")
+    print("--------------------------------------------------")
+    print("8. ALTERNATIVE-VALID FIX BREAKDOWN:")
+    avb = metrics["alternative_valid_breakdown"]
+    print(f"  Total Alternative-Valid Scenarios   : {avb['total_alt_valid']}")
+    print(f"  - Canonical Match                   : {avb['canonical_success']}")
+    print(f"  - Token Equivalent                  : {avb['token_success']}")
+    print(f"  - Semantic Oracle                   : {avb['oracle_success']}")
+    print(f"  - Semantic Review Required          : {avb['review_required']}")
+    print(f"  - Confirmed Wrong Fix               : {avb['wrong_fix']}")
+    print("==================================================\n")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Evaluate Fix Agent Benchmark V2 Results")
+    parser.add_argument("results_file", type=str, help="Path to results JSON file")
+    parser.add_argument("--output", type=str, default=None, help="Path to save evaluation report JSON")
+
+    args = parser.parse_args()
+    res_path = Path(args.results_file)
+    if not res_path.exists():
+        print(f"[Error] Results file not found: {res_path}", file=sys.stderr)
+        sys.exit(1)
+
+    results_data = json.loads(res_path.read_text(encoding="utf-8"))
+    metrics = compute_metrics(results_data)
+
+    print_evaluation_report(metrics)
+
+    report_p = args.output
+    if not report_p:
+        rep_dir = BENCHMARK_DIR / "reports"
+        rep_dir.mkdir(parents=True, exist_ok=True)
+        split_name = results_data.get("split", "DEV").lower()
+        backend_name = results_data.get("backend", "mock").lower()
+        report_p = rep_dir / f"eval_report_{backend_name}_{split_name}.json"
+    else:
+        report_p = Path(report_p)
+
+    report_p.write_text(json.dumps(metrics, indent=2), encoding="utf-8")
+    print(f"Evaluation report saved to: {report_p}")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,14 @@
+{
+  "total_audited": 80,
+  "pass_count": 80,
+  "review_count": 6,
+  "fail_count": 0,
+  "issues": [
+    "[REVIEW] FB2-009: High structural similarity (1.00) with legacy FA-005",
+    "[REVIEW] FB2-021: High structural similarity (1.00) with legacy FA-009",
+    "[REVIEW] FB2-027: High structural similarity (1.00) with legacy FA-015",
+    "[REVIEW] FB2-050: High structural similarity (1.00) with legacy FA-020",
+    "[REVIEW] FB2-050: High structural similarity (1.00) with legacy FA-022",
+    "[REVIEW] FB2-063: High structural similarity (1.00) with legacy FA-005"
+  ]
+}

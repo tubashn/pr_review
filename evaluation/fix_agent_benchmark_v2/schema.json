@@ -1,0 +1,127 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FixAgentBenchmarkV2Schema",
+  "type": "object",
+  "properties": {
+    "scenario_id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "split": {
+      "type": "string",
+      "enum": [
+        "DEV",
+        "HOLDOUT"
+      ]
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "correctness_logic",
+        "maintainability",
+        "security_validation"
+      ]
+    },
+    "finding_type": {
+      "type": "string"
+    },
+    "eligibility_expected": {
+      "type": "boolean"
+    },
+    "expected_fix_status": {
+      "type": "string",
+      "enum": [
+        "generated",
+        "skipped"
+      ]
+    },
+    "expected_skip_reason_category": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": [
+        "EASY",
+        "MEDIUM",
+        "HARD"
+      ]
+    },
+    "fix_complexity": {
+      "type": "string",
+      "enum": [
+        "single_line",
+        "multi_line",
+        "boundary"
+      ]
+    },
+    "file_path": {
+      "type": "string"
+    },
+    "line": {
+      "type": "integer"
+    },
+    "problem": {
+      "type": "string"
+    },
+    "evidence": {
+      "type": "string"
+    },
+    "context_scope": {
+      "type": "string"
+    },
+    "source_fixture": {
+      "type": "string"
+    },
+    "expected_after_fixture": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "alternative_valid_fix": {
+      "type": "boolean"
+    },
+    "semantic_oracle": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "oracle_type": {
+          "type": "string"
+        },
+        "variants": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "scenario_id",
+    "title",
+    "split",
+    "role",
+    "finding_type",
+    "eligibility_expected",
+    "expected_fix_status",
+    "difficulty",
+    "fix_complexity",
+    "file_path",
+    "line",
+    "problem",
+    "evidence",
+    "context_scope",
+    "source_fixture"
+  ]
+}

@@ -1,0 +1,149 @@
+{
+  "benchmark_version": "2.0",
+  "summary": {
+    "split": "DEV",
+    "backend": "mock",
+    "total_scenarios": 56,
+    "eligible_count": 38,
+    "ineligible_count": 18,
+    "eligibility_accuracy": {
+      "passed": 47,
+      "total": 56,
+      "rate": 0.8392857142857143
+    },
+    "safe_skip_rate": {
+      "passed": 10,
+      "total": 18,
+      "rate": 0.5555555555555556
+    },
+    "mechanical_success": {
+      "passed": 0,
+      "total": 38,
+      "rate": 0.0
+    },
+    "canonical_source_match": {
+      "passed": 0,
+      "total": 38,
+      "rate": 0.0
+    },
+    "token_equivalent_match": {
+      "passed": 0,
+      "total": 38,
+      "rate": 0.0
+    },
+    "deterministic_semantic_oracle": {
+      "passed": 0,
+      "applicable": 4,
+      "rate": 0.0
+    },
+    "automated_semantic_accepted": {
+      "passed": 0,
+      "total": 38,
+      "rate": 0.0
+    },
+    "semantic_review_required_count": 0,
+    "confirmed_wrong_fix_count": 0,
+    "success_modes": {
+      "canonical": 0,
+      "token_equivalent": 0,
+      "semantic_oracle": 0,
+      "semantic_review_required": 0,
+      "wrong_fix": 0
+    }
+  },
+  "taxonomy": {
+    "mechanical_failure": 25,
+    "old_text_not_found": 5,
+    "structural_sanity_failed": 5,
+    "no_op_fix": 2,
+    "eligibility_false_skip_absence_type_not_auto_fixed": 1,
+    "success_safe_skip": 10,
+    "eligibility_unsafe_generate": 8
+  },
+  "category_breakdown": {
+    "maintainability": {
+      "total": 28,
+      "eligible": 19,
+      "ineligible": 9,
+      "mechanical_success": 0,
+      "canonical_match": 0,
+      "semantic_accepted": 0,
+      "safe_skips": 3
+    },
+    "correctness_logic": {
+      "total": 25,
+      "eligible": 19,
+      "ineligible": 6,
+      "mechanical_success": 0,
+      "canonical_match": 0,
+      "semantic_accepted": 0,
+      "safe_skips": 4
+    },
+    "security_validation": {
+      "total": 3,
+      "eligible": 0,
+      "ineligible": 3,
+      "mechanical_success": 0,
+      "canonical_match": 0,
+      "semantic_accepted": 0,
+      "safe_skips": 3
+    }
+  },
+  "difficulty_breakdown": {
+    "EASY": {
+      "total": 17,
+      "eligible": 17,
+      "ineligible": 0,
+      "mechanical_success": 0,
+      "semantic_accepted": 0,
+      "safe_skips": 0
+    },
+    "MEDIUM": {
+      "total": 25,
+      "eligible": 16,
+      "ineligible": 9,
+      "mechanical_success": 0,
+      "semantic_accepted": 0,
+      "safe_skips": 6
+    },
+    "HARD": {
+      "total": 14,
+      "eligible": 5,
+      "ineligible": 9,
+      "mechanical_success": 0,
+      "semantic_accepted": 0,
+      "safe_skips": 4
+    }
+  },
+  "complexity_breakdown": {
+    "single_line": {
+      "eligible_count": 22,
+      "mechanical_success": 0,
+      "semantic_accepted": 0,
+      "review_required": 0,
+      "wrong_fix": 0
+    },
+    "multi_line": {
+      "eligible_count": 11,
+      "mechanical_success": 0,
+      "semantic_accepted": 0,
+      "review_required": 0,
+      "wrong_fix": 0
+    },
+    "boundary": {
+      "eligible_count": 5,
+      "mechanical_success": 0,
+      "semantic_accepted": 0,
+      "review_required": 0,
+      "wrong_fix": 0
+    }
+  },
+  "alternative_valid_breakdown": {
+    "total_alt_valid": 7,
+    "canonical_success": 0,
+    "token_success": 0,
+    "oracle_success": 0,
+    "review_required": 0,
+    "wrong_fix": 0
+  }
+}
