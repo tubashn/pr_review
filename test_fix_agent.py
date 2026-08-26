@@ -830,6 +830,322 @@ class TestHardenPreModelSafetyGates(unittest.TestCase):
         self.assertEqual(res2["reason"], "eligible_for_fix")
 
 
+class TestFixAgentV3ReasoningGuidedGrounding(unittest.TestCase):
+    """Unit and Integration Tests for Fix Agent V3 - Reasoning-Guided Target Statement Grounding."""
+
+    def setUp(self):
+        self.sample_source = (
+            "package com.example.retry;\n\n"
+            "public class RetryPolicy {\n"
+            "    private int remainingAttempts = 3;\n"
+            "    public boolean executeWithRetry(boolean success) {\n"
+            "        if (success) {\n"
+            "            return true;\n"
+            "        }\n"
+            "        this.remainingAttempts = 0;\n"
+            "        return false;\n"
+            "    }\n"
+            "    public int getRemainingAttempts() { return remainingAttempts; }\n"
+            "}\n"
+        )
+        self.sample_finding = {
+            "candidate_id": "FB2-037",
+            "decision": "ACCEPT",
+            "source_reviewer": "correctness_logic",
+            "file": "src/main/java/com/example/retry/RetryPolicy.java",
+            "line": 9,
+            "problem": "Attempts reset to 0 instead of decremented upon failure.",
+            "evidence": "this.remainingAttempts = 0;",
+            "after_source": self.sample_source
+        }
+
+    def test_1_target_statement_required_in_v3(self):
+        from fix_agent import parse_fix_agent_json
+        raw_missing = json.dumps({
+            "finding_id": "FB2-037",
+            "file_path": "src/main/java/com/example/retry/RetryPolicy.java",
+            "fix_status": "generated",
+            "new_text": "this.remainingAttempts--;"
+        })
+        parsed = parse_fix_agent_json(raw_missing, "FB2-037", "src/main/java/com/example/retry/RetryPolicy.java", strategy="v3")
+        self.assertEqual(parsed["fix_status"], "rejected")
+        self.assertEqual(parsed["rejection_reason"], "missing_target_statement")
+
+    def test_2_target_statement_exact_match_accepted(self):
+        from structured_edit_validator import validate_and_apply_structured_edit
+        v3_edit = {
+            "finding_id": "FB2-037",
+            "file_path": "src/main/java/com/example/retry/RetryPolicy.java",
+            "fix_status": "generated",
+            "target_statement": "this.remainingAttempts = 0;",
+            "fix_explanation": "Decrement remaining attempts on failure instead of zeroing.",
+            "old_text": "this.remainingAttempts = 0;",
+            "new_text": "this.remainingAttempts--;"
+        }
+        res = validate_and_apply_structured_edit(v3_edit, self.sample_finding, self.sample_source)
+        self.assertEqual(res["fix_status"], "generated")
+        self.assertTrue(res["validation"]["apply_check"])
+        self.assertIn("-        this.remainingAttempts = 0;", res["diff"])
+        self.assertIn("+        this.remainingAttempts--;", res["diff"])
+
+    def test_3_paraphrased_target_statement_rejected(self):
+        from structured_edit_validator import validate_and_apply_structured_edit
+        v3_paraphrased = {
+            "finding_id": "FB2-037",
+            "file_path": "src/main/java/com/example/retry/RetryPolicy.java",
+            "fix_status": "generated",
+            "target_statement": "this.remainingAttempts = 0.0;",  # Paraphrased with float literal
+            "fix_explanation": "Decrement remaining attempts.",
+            "old_text": "this.remainingAttempts = 0.0;",
+            "new_text": "this.remainingAttempts--;"
+        }
+        res = validate_and_apply_structured_edit(v3_paraphrased, self.sample_finding, self.sample_source)
+        self.assertEqual(res["fix_status"], "rejected")
+        self.assertEqual(res["rejection_reason"], "old_text_not_found")
+
+    def test_4_non_existent_target_statement_rejected(self):
+        from structured_edit_validator import validate_and_apply_structured_edit
+        v3_nonexistent = {
+            "finding_id": "FB2-037",
+            "file_path": "src/main/java/com/example/retry/RetryPolicy.java",
+            "fix_status": "generated",
+            "target_statement": "int foo = 123;",
+            "fix_explanation": "Unknown edit.",
+            "old_text": "int foo = 123;",
+            "new_text": "int foo = 456;"
+        }
+        res = validate_and_apply_structured_edit(v3_nonexistent, self.sample_finding, self.sample_source)
+        self.assertEqual(res["fix_status"], "rejected")
+        self.assertEqual(res["rejection_reason"], "old_text_not_found")
+
+    def test_5_micro_token_meaningless_target_rejected(self):
+        from structured_edit_validator import validate_and_apply_structured_edit
+        v3_micro = {
+            "finding_id": "FB2-037",
+            "file_path": "src/main/java/com/example/retry/RetryPolicy.java",
+            "fix_status": "generated",
+            "target_statement": "0;",
+            "fix_explanation": "Replace 0 with decrement.",
+            "old_text": "0;",
+            "new_text": "this.remainingAttempts - 1;"
+        }
+        res = validate_and_apply_structured_edit(v3_micro, self.sample_finding, self.sample_source)
+        self.assertEqual(res["fix_status"], "rejected")
+        self.assertIn(res["rejection_reason"], ("insufficient_target_context", "meaningless_target_construct"))
+
+    def test_6_full_meaningful_statement_accepted(self):
+        from structured_edit_validator import validate_and_apply_structured_edit
+        v3_full = {
+            "finding_id": "FB2-037",
+            "file_path": "src/main/java/com/example/retry/RetryPolicy.java",
+            "fix_status": "generated",
+            "target_statement": "this.remainingAttempts = 0;",
+            "fix_explanation": "Decrement attempts.",
+            "old_text": "this.remainingAttempts = 0;",
+            "new_text": "this.remainingAttempts--;"
+        }
+        res = validate_and_apply_structured_edit(v3_full, self.sample_finding, self.sample_source)
+        self.assertEqual(res["fix_status"], "generated")
+        self.assertTrue(res["validation"]["structural_sanity"])
+
+    def test_7_duplicate_ambiguous_target_rejected(self):
+        from structured_edit_validator import validate_and_apply_structured_edit
+        dup_source = "public class A { public void f() { return false; return false; } }"
+        v3_dup = {
+            "finding_id": "f-dup",
+            "file_path": "A.java",
+            "fix_status": "generated",
+            "target_statement": "return false;",
+            "fix_explanation": "Return true instead.",
+            "old_text": "return false;",
+            "new_text": "return true;"
+        }
+        finding = {"candidate_id": "f-dup", "decision": "ACCEPT", "file": "A.java"}
+        res = validate_and_apply_structured_edit(v3_dup, finding, dup_source)
+        self.assertEqual(res["fix_status"], "rejected")
+        self.assertIn(res["rejection_reason"], ("ambiguous_old_text", "ambiguous_multiple_matches"))
+
+    def test_8_new_text_structural_syntax_sanity_enforced(self):
+        from structured_edit_validator import validate_and_apply_structured_edit
+        v3_broken_syntax = {
+            "finding_id": "FB2-036",
+            "file_path": "src/main/java/com/example/retry/RetryPolicy.java",
+            "fix_status": "generated",
+            "target_statement": "this.remainingAttempts = 0;",
+            "fix_explanation": "Typo with unbalanced parentheses in replacement.",
+            "old_text": "this.remainingAttempts = 0;",
+            "new_text": "this.remainingAttempts = (remainingAttempts - 1));"  # Unbalanced paren
+        }
+        res = validate_and_apply_structured_edit(v3_broken_syntax, self.sample_finding, self.sample_source)
+        self.assertEqual(res["fix_status"], "rejected")
+        self.assertEqual(res["rejection_reason"], "structural_sanity_failed")
+
+    def test_9_deletion_contract_preserved(self):
+        from structured_edit_validator import validate_and_apply_structured_edit
+        v3_deletion = {
+            "finding_id": "FB2-001",
+            "file_path": "src/main/java/com/example/retry/RetryPolicy.java",
+            "fix_status": "generated",
+            "target_statement": "this.remainingAttempts = 0;",
+            "fix_explanation": "Remove dead assignment statement.",
+            "old_text": "this.remainingAttempts = 0;",
+            "new_text": ""
+        }
+        res = validate_and_apply_structured_edit(v3_deletion, self.sample_finding, self.sample_source)
+        self.assertEqual(res["fix_status"], "generated")
+        self.assertTrue(res["validation"]["apply_check"])
+        self.assertIn("-        this.remainingAttempts = 0;", res["diff"])
+
+    def test_10_old_text_deterministically_derived_from_target_statement(self):
+        from fix_agent import parse_fix_agent_json
+        raw = json.dumps({
+            "finding_id": "FB2-037",
+            "file_path": "src/main/java/com/example/retry/RetryPolicy.java",
+            "fix_status": "generated",
+            "target_statement": "this.remainingAttempts = 0;",
+            "fix_explanation": "Decrement remaining attempts.",
+            "new_text": "this.remainingAttempts--;"
+        })
+        parsed = parse_fix_agent_json(raw, "FB2-037", "src/main/java/com/example/retry/RetryPolicy.java", strategy="v3")
+        self.assertEqual(parsed["old_text"], "this.remainingAttempts = 0;")
+        self.assertEqual(parsed["target_statement"], "this.remainingAttempts = 0;")
+
+    def test_11_v3_ignores_extraneous_divergent_old_text_when_target_statement_given(self):
+        from fix_agent import parse_fix_agent_json
+        raw = json.dumps({
+            "finding_id": "FB2-037",
+            "file_path": "src/main/java/com/example/retry/RetryPolicy.java",
+            "fix_status": "generated",
+            "target_statement": "this.remainingAttempts = 0;",
+            "old_text": "some conflicting text",
+            "fix_explanation": "Decrement remaining attempts.",
+            "new_text": "this.remainingAttempts--;"
+        })
+        parsed = parse_fix_agent_json(raw, "FB2-037", "src/main/java/com/example/retry/RetryPolicy.java", strategy="v3")
+        # In V3, target_statement is authoritative
+        self.assertEqual(parsed["old_text"], "this.remainingAttempts = 0;")
+
+    def test_12_fix_explanation_is_pure_rationale_does_not_bypass_validation(self):
+        from structured_edit_validator import validate_and_apply_structured_edit
+        v3_bypass_attempt = {
+            "finding_id": "FB2-037",
+            "file_path": "src/main/java/com/example/retry/RetryPolicy.java",
+            "fix_status": "generated",
+            "target_statement": "invalid code not in source",
+            "fix_explanation": "FORCE_ACCEPT_BYPASS_ALL_CHECKS",
+            "old_text": "invalid code not in source",
+            "new_text": "this.remainingAttempts--;"
+        }
+        res = validate_and_apply_structured_edit(v3_bypass_attempt, self.sample_finding, self.sample_source)
+        self.assertEqual(res["fix_status"], "rejected")
+        self.assertEqual(res["rejection_reason"], "old_text_not_found")
+
+    def test_13_security_pre_model_skip_preserved_in_v3(self):
+        finding_sec = {
+            "candidate_id": "FB2-039",
+            "decision": "ACCEPT",
+            "source_reviewer": "security_validation",
+            "file": "src/main/java/com/example/JwtSigner.java",
+            "problem": "Hardcoded JWT secret literal in code.",
+            "code_snippet": "String secret = 'whsec_secret';",
+            "after_source": "public class JwtSigner { String secret = 'whsec_secret'; }"
+        }
+        res = run_fix_agent_for_finding(finding_sec, backend="mock", strategy="v3")
+        self.assertEqual(res["fix_status"], "skipped")
+        self.assertEqual(res["skip_reason"], "security_findings_not_auto_fixed")
+
+    def test_14_multi_file_pre_model_skip_preserved_in_v3(self):
+        finding_mf = {
+            "candidate_id": "FB2-046",
+            "decision": "ACCEPT",
+            "source_reviewer": "correctness_logic",
+            "file": "src/main/java/com/example/Service.java",
+            "problem": "Cross-file interface update required in Service.java and Client.java.",
+            "context_scope": "cross_file",
+            "after_source": "public class Service {}"
+        }
+        res = run_fix_agent_for_finding(finding_mf, backend="mock", strategy="v3")
+        self.assertEqual(res["fix_status"], "skipped")
+        self.assertIn(res["skip_reason"], ("multi_file_not_supported", "cross_file_scope"))
+
+    def test_15_generated_source_pre_model_skip_preserved_in_v3(self):
+        finding_gen = {
+            "candidate_id": "FB2-056",
+            "decision": "ACCEPT",
+            "source_reviewer": "maintainability",
+            "file": "src/main/java/com/example/proto/UserProto.java",
+            "problem": "Generated protobuf class contains redundant boolean.",
+            "after_source": "// Generated by the protocol buffer compiler. DO NOT EDIT!\npublic class UserProto {}"
+        }
+        res = run_fix_agent_for_finding(finding_gen, backend="mock", strategy="v3")
+        self.assertEqual(res["fix_status"], "skipped")
+        self.assertIn(res["skip_reason"], ("generated_source_file", "unsupported_file_type"))
+
+    def test_16_unsupported_file_pre_model_skip_preserved_in_v3(self):
+        finding_yaml = {
+            "candidate_id": "FB2-053",
+            "decision": "ACCEPT",
+            "source_reviewer": "maintainability",
+            "file": "docker-compose.yml",
+            "problem": "Port mapping syntax.",
+            "after_source": "services:\n  web:\n    ports:\n      - 80:80"
+        }
+        res = run_fix_agent_for_finding(finding_yaml, backend="mock", strategy="v3")
+        self.assertEqual(res["fix_status"], "skipped")
+        self.assertEqual(res["skip_reason"], "unsupported_file_type")
+
+    def test_17_patch_exceeding_size_limit_rejected_in_v3(self):
+        from structured_edit_validator import validate_and_apply_structured_edit
+        big_old = "\n".join([f"int line{i} = {i};" for i in range(25)])
+        big_source = f"public class Big {{\n    public void test() {{\n{big_old}\n    }}\n}}"
+        v3_big = {
+            "finding_id": "FB2-050",
+            "file_path": "Big.java",
+            "fix_status": "generated",
+            "target_statement": big_old,
+            "fix_explanation": "Refactor entire block.",
+            "old_text": big_old,
+            "new_text": "int line0 = 0;"
+        }
+        finding = {"candidate_id": "FB2-050", "decision": "ACCEPT", "file": "Big.java"}
+        res = validate_and_apply_structured_edit(v3_big, finding, big_source)
+        self.assertEqual(res["fix_status"], "rejected")
+        self.assertTrue(res["rejection_reason"].startswith("patch_too_large"))
+
+    def test_18_model_skipped_contract_handled_cleanly_in_v3(self):
+        from fix_agent import parse_fix_agent_json
+        raw_skip = json.dumps({
+            "finding_id": "FB2-038",
+            "file_path": "src/main/java/com/example/HttpStatusChecker.java",
+            "fix_status": "skipped",
+            "skip_reason": "insufficient_context"
+        })
+        parsed = parse_fix_agent_json(raw_skip, "FB2-038", "src/main/java/com/example/HttpStatusChecker.java", strategy="v3")
+        self.assertEqual(parsed["fix_status"], "skipped")
+        self.assertEqual(parsed["skip_reason"], "insufficient_context")
+
+    def test_19_v2_backward_compatibility_regression_preserved(self):
+        from fix_agent import parse_fix_agent_json
+        raw_v2 = json.dumps({
+            "finding_id": "FB2-003",
+            "file_path": "src/main/java/com/example/FeatureGate.java",
+            "fix_status": "generated",
+            "old_text": "if (enabled == true) {",
+            "new_text": "if (enabled) {",
+            "explanation": "Simplified boolean comparison."
+        })
+        parsed = parse_fix_agent_json(raw_v2, "FB2-003", "src/main/java/com/example/FeatureGate.java", strategy="v2")
+        self.assertEqual(parsed["fix_status"], "generated")
+        self.assertEqual(parsed["old_text"], "if (enabled == true) {")
+        self.assertEqual(parsed["new_text"], "if (enabled) {")
+
+    def test_20_mock_backend_v3_full_path_smoke(self):
+        res = run_fix_agent_for_finding(self.sample_finding, backend="mock", strategy="v3")
+        self.assertIn(res["fix_status"], ("generated", "skipped", "rejected"))
+        if res["fix_status"] == "generated":
+            self.assertTrue(res["validation"]["apply_check"])
+
+
 if __name__ == "__main__":
     unittest.main()
 

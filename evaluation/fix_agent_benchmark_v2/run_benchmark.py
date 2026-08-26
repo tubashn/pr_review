@@ -67,7 +67,8 @@ def run_benchmark(
     device: str = "auto",
     api_base: Optional[str] = None,
     api_key: Optional[str] = None,
-    output_path: Optional[str] = None
+    output_path: Optional[str] = None,
+    strategy: str = "v2"
 ) -> Dict[str, Any]:
     if split == "HOLDOUT":
         print("********************************************************************************")
@@ -81,6 +82,7 @@ def run_benchmark(
     print("==================================================")
     print(f"Split       : {split}")
     print(f"Backend     : {backend}")
+    print(f"Strategy    : {strategy.upper()}")
     print(f"Model ID    : {model_id}")
     print("==================================================")
 
@@ -157,7 +159,8 @@ def run_benchmark(
             api_key=api_key,
             model_id=model_id,
             dry_run=(backend == "mock"),
-            pr_changed_files=[fpath]
+            pr_changed_files=[fpath],
+            strategy=strategy
         )
 
         actual_status = agent_output.get("fix_status", "skipped")
@@ -286,6 +289,7 @@ def run_benchmark(
         "benchmark_version": "2.0",
         "split": split,
         "backend": backend,
+        "strategy": strategy,
         "model_id": model_id,
         "total_scenarios": len(scenarios),
         "elapsed_seconds": round(elapsed, 2),
@@ -305,6 +309,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run Fix Agent Benchmark V2 Harness")
     parser.add_argument("--split", choices=["DEV", "HOLDOUT"], default="DEV", help="Benchmark split to evaluate (default: DEV)")
     parser.add_argument("--backend", choices=["mock", "transformers"], default="mock", help="Backend type")
+    parser.add_argument("--fix-strategy", "--strategy", choices=["v2", "v3"], default="v2", help="Fix Agent strategy formulation (v2 or v3)")
     parser.add_argument("--model-id", default="Qwen/Qwen2.5-Coder-7B-Instruct", help="Hugging Face model ID")
     parser.add_argument("--device", default="auto", help="Device (cpu, cuda, auto)")
     parser.add_argument("--quantization", default="4bit", choices=["4bit", "8bit", "none"])
@@ -314,7 +319,7 @@ def main():
 
     args = parser.parse_args()
 
-    default_out = BENCHMARK_DIR / "results" / f"{args.backend}_{args.split.lower()}.json"
+    default_out = BENCHMARK_DIR / "results" / f"{args.backend}_{args.fix_strategy}_{args.split.lower()}.json"
     out_file = args.output or str(default_out)
 
     run_benchmark(
@@ -325,7 +330,8 @@ def main():
         device=args.device,
         api_base=args.api_base,
         api_key=args.api_key,
-        output_path=out_file
+        output_path=out_file,
+        strategy=args.fix_strategy
     )
 
 

@@ -583,6 +583,17 @@ class TestSemanticEvaluationPlumbingAndInvariants(unittest.TestCase):
         self.assertEqual(r0["semantic_match_mode"], "token_equivalent")
 
 
+class TestBenchmarkV3StrategySupport(unittest.TestCase):
+    """Tests Fix Agent V3 strategy option in benchmark harness."""
+
+    def test_run_benchmark_mock_v3_strategy(self):
+        from run_benchmark import run_benchmark
+        output = run_benchmark(split="DEV", backend="mock", strategy="v3")
+        self.assertEqual(output["strategy"], "v3")
+        self.assertEqual(output["total_scenarios"], 56)
+        self.assertEqual(len(output["results"]), 56)
+
+
 if __name__ == "__main__":
     unittest.main()
 

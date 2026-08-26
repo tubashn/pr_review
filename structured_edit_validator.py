@@ -14,7 +14,7 @@ MAX_CHANGED_LINES = 20
 
 PUNCTUATION_OR_DELIMITER_ONLY = {
     "}", "{", ";", ")", "(", "]", "[", ":", ",", ".", "true", "false", "status",
-    "true;", "false;", "};", "});", "return;"
+    "true;", "false;", "};", "});", "return;", "0;", "0", "1;", "1", "+", "-", "*", "/", "==", "!="
 }
 
 
@@ -309,7 +309,7 @@ def validate_and_apply_structured_edit(
     if changed_count > MAX_CHANGED_LINES:
         return make_rejection(f"patch_too_large_{changed_count}_lines", "patch_too_large")
 
-    return {
+    res_dict = {
         "finding_id": fid,
         "file_path": norm_file,
         "fix_status": "generated",
@@ -329,3 +329,8 @@ def validate_and_apply_structured_edit(
         "rejection_reason": None,
         "failure_type": None
     }
+    if "target_statement" in structured_edit:
+        res_dict["target_statement"] = structured_edit["target_statement"]
+    if "fix_explanation" in structured_edit:
+        res_dict["fix_explanation"] = structured_edit["fix_explanation"]
+    return res_dict

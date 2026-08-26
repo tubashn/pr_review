@@ -16,15 +16,24 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from fix_eligibility import check_fix_eligibility
-from fix_agent_prompt_builder import FIX_AGENT_SYSTEM_PROMPT, build_fix_agent_prompt
+from fix_agent_prompt_builder import (
+    FIX_AGENT_SYSTEM_PROMPT,
+    FIX_AGENT_SYSTEM_PROMPT_V2,
+    FIX_AGENT_SYSTEM_PROMPT_V3,
+    build_fix_agent_prompt
+)
 from structured_edit_validator import validate_and_apply_structured_edit
 from mock_fix_agent import run_deterministic_mock_fix
 
 logger = logging.getLogger("fix_agent")
 
 
-def parse_fix_agent_json(raw_text: str, finding_id: str, file_path: str) -> Dict[str, Any]:
-    """Parses model JSON response for Fix Agent V2 structured edits."""
+def parse_fix_agent_json(raw_text: str, finding_id: str, file_path: str, strategy: str = "v2") -> Dict[str, Any]:
+    """
+    Parses model JSON response for Fix Agent structured edits.
+    Supports both V2 (old_text -> new_text) and V3 (target_statement -> fix_explanation -> new_text).
+    In V3, old_text is deterministically derived from target_statement.
+    """
     cleaned = raw_text.strip()
     if "```" in cleaned:
         match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", cleaned)
@@ -51,16 +60,52 @@ def parse_fix_agent_json(raw_text: str, finding_id: str, file_path: str) -> Dict
         if status not in ("generated", "skipped", "rejected"):
             status = "skipped"
 
-        return {
+        target_stmt = str(data.get("target_statement") or "").strip()
+        old_text_raw = str(data.get("old_text") or "")
+        new_text = str(data.get("new_text", ""))
+        explanation = str(data.get("fix_explanation") or data.get("explanation", ""))
+
+        if strategy.lower() == "v3":
+            if status == "generated":
+                if target_stmt:
+                    old_text = target_stmt
+                elif old_text_raw:
+                    # Fallback if model provided old_text instead of target_statement
+                    old_text = old_text_raw
+                    target_stmt = old_text_raw
+                else:
+                    return {
+                        "finding_id": data.get("finding_id", finding_id),
+                        "file_path": data.get("file_path", file_path),
+                        "fix_status": "rejected",
+                        "diff": "",
+                        "old_text": "",
+                        "new_text": new_text,
+                        "explanation": explanation,
+                        "skip_reason": None,
+                        "rejection_reason": "missing_target_statement",
+                        "failure_type": "invalid_model_schema"
+                    }
+            else:
+                old_text = ""
+        else:
+            old_text = old_text_raw
+
+        res = {
             "finding_id": data.get("finding_id", finding_id),
             "file_path": data.get("file_path", file_path),
             "fix_status": status,
-            "old_text": str(data.get("old_text", "")),
-            "new_text": str(data.get("new_text", "")),
-            "explanation": str(data.get("explanation", "")),
+            "old_text": old_text,
+            "new_text": new_text,
+            "explanation": explanation,
             "skip_reason": data.get("skip_reason"),
             "rejection_reason": data.get("rejection_reason")
         }
+        if target_stmt:
+            res["target_statement"] = target_stmt
+        if "fix_explanation" in data or strategy.lower() == "v3":
+            res["fix_explanation"] = explanation
+        return res
     except Exception as e:
         return {
             "finding_id": finding_id,
@@ -86,10 +131,12 @@ def run_fix_agent_for_finding(
     api_key: Optional[str] = None,
     model_id: str = "Qwen/Qwen2.5-Coder-7B-Instruct",
     dry_run: bool = False,
-    pr_changed_files: Optional[List[str]] = None
+    pr_changed_files: Optional[List[str]] = None,
+    strategy: str = "v2"
 ) -> Dict[str, Any]:
     """
     Processes a single verified finding through eligibility, generation, and validation.
+    Supports strategy='v2' (default) and strategy='v3' (Reasoning-Guided Target Statement Grounding).
     """
     fid = finding.get("candidate_id") or finding.get("finding_id", "cand-1")
     file_rel = finding.get("file") or finding.get("file_path") or ""
@@ -134,6 +181,9 @@ def run_fix_agent_for_finding(
     # Extract surrounding source context
     source_context = file_content or finding.get("after_source", "")
 
+    # Select system prompt according to strategy
+    system_prompt = FIX_AGENT_SYSTEM_PROMPT_V3 if strategy.lower() == "v3" else FIX_AGENT_SYSTEM_PROMPT_V2
+
     # 2. Mock / Dry-run Backend
     if backend == "mock" or dry_run:
         return run_deterministic_mock_fix(
@@ -141,7 +191,8 @@ def run_fix_agent_for_finding(
             file_path=file_rel,
             source_content=file_content,
             diff_hunk="",
-            pr_changed_files=pr_changed_files
+            pr_changed_files=pr_changed_files,
+            strategy=strategy
         )
 
     # 3. Production Transformers Backend
@@ -173,11 +224,12 @@ def run_fix_agent_for_finding(
             finding=finding,
             file_path=file_rel,
             source_context=source_context,
-            diff_hunk=""
+            diff_hunk="",
+            strategy=strategy
         )
 
         messages = [
-            {"role": "system", "content": FIX_AGENT_SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ]
         prompt_text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
@@ -186,7 +238,7 @@ def run_fix_agent_for_finding(
             outputs = loaded_model.generate(**inputs, max_new_tokens=512, do_sample=False, temperature=0.0)
         gen_tokens = outputs[0][inputs["input_ids"].shape[1]:]
         raw = tokenizer.decode(gen_tokens, skip_special_tokens=True)
-        parsed = parse_fix_agent_json(raw, fid, file_rel)
+        parsed = parse_fix_agent_json(raw, fid, file_rel, strategy=strategy)
 
         if parsed["fix_status"] == "skipped":
             return {
@@ -233,13 +285,14 @@ def run_fix_agent_for_finding(
             finding=finding,
             file_path=file_rel,
             source_context=source_context,
-            diff_hunk=""
+            diff_hunk="",
+            strategy=strategy
         )
         url = f"{api_base or 'http://localhost:8000/v1'}/chat/completions"
         payload = {
             "model": model_id,
             "messages": [
-                {"role": "system", "content": FIX_AGENT_SYSTEM_PROMPT},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
             "temperature": 0.0,
@@ -251,7 +304,7 @@ def run_fix_agent_for_finding(
         with urllib.request.urlopen(req) as resp:
             resp_json = json.loads(resp.read().decode("utf-8"))
             raw = resp_json["choices"][0]["message"]["content"]
-            parsed = parse_fix_agent_json(raw, fid, file_rel)
+            parsed = parse_fix_agent_json(raw, fid, file_rel, strategy=strategy)
 
         if parsed["fix_status"] == "skipped":
             return {

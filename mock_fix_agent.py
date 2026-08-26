@@ -15,10 +15,12 @@ def run_deterministic_mock_fix(
     file_path: str,
     source_content: str = "",
     diff_hunk: str = "",
-    pr_changed_files: Optional[list] = None
+    pr_changed_files: Optional[list] = None,
+    strategy: str = "v2"
 ) -> Dict[str, Any]:
     """
     Generates a deterministic mock structured edit for an eligible finding and validates it.
+    Supports strategy='v2' and strategy='v3'.
     """
     fid = finding.get("candidate_id") or finding.get("finding_id", "mock-fix")
     problem = str(finding.get("problem", "")).strip()
@@ -115,6 +117,9 @@ def run_deterministic_mock_fix(
         "new_text": new_text,
         "explanation": explanation
     }
+    if strategy.lower() == "v3":
+        structured_edit["target_statement"] = old_text
+        structured_edit["fix_explanation"] = explanation
 
     # Pass through deterministic validation, grounding, and diff synthesis
     res = validate_and_apply_structured_edit(
