@@ -378,3 +378,33 @@ python evaluation/fix_agent_v1/run_fix_eval.py \
 
 python evaluation/fix_agent_v1/evaluate_fix_results.py evaluation/fix_agent_v1/results/qwen7b_dev.json
 ```
+
+---
+
+## Fix Agent Benchmark V2 & Final Evaluation Results
+
+Fix Agent'ın patch üretim kalitesi ve güvenlik sınırları, genişletilmiş **Fix Agent Benchmark V2** (80 sentetik Java senaryosu: 56 DEV / 24 HOLDOUT) üzerinde değerlendirilmiştir.
+
+### 1. Final V2 Evaluation Metrikleri (DEV vs. HOLDOUT)
+
+| Metrik Grubu | Değerlendirme Metriği | DEV Baseline ($N=56$) | Final Pristine HOLDOUT ($N=24$) |
+|---|---|:---:|:---:|
+| **Kapsam** | Eligible / Ineligible (Expected Skip) | 38 / 18 | 16 / 8 |
+| **Güvenlik** | Pre-Model Gate Doğruluğu | **92.9%** (52/56) | **95.8%** (23/24) |
+| | Pre-Model Safe Skip Oranı | **77.8%** (14/18) | **87.5%** (7/8) |
+| | **End-to-End Unsafe Fix Prevention** | **100.0%** (18/18) | **100.0%** (8/8) |
+| | Kritik Gate Kaçağı | **0** | **0** |
+| **Mekanik Kalite** | **Mechanical Success Rate** | **86.8%** (33/38) | **81.2%** (13/16) |
+| **Semantik Doğruluk** | Canonical Source Match | **81.6%** (31/38) | **56.2%** (9/16) |
+| | Java Token-Equivalent Match | **81.6%** (31/38) | **68.8%** (11/16) |
+| | **Automated Semantic Accepted** | **84.2%** (32/38) | **68.8%** (11/16) |
+| | Semantic Review Required | 1 / 38 | 2 / 16 |
+| | Confirmed Wrong Fix | **0 / 38** | **0 / 16** |
+
+### 2. V3 Kontrollü Ablasyon Deneyi ve Final Strateji Seçimi
+DEV üzerinde gerçekleştirilen kontrollü ablasyon deneyinde (Fix Agent V3: Reasoning-Guided Target Statement Grounding), modelin tam statement çıkarması zorunlu kılınmıştır. Bu yaklaşım hedeflenen zor correctness vakalarını ve exact grounding hatalarını çözmüş (HARD mechanical: %20 $\rightarrow$ %100, Correctness mechanical: %73.7 $\rightarrow$ %94.7), ancak basit maintainability silme işlemlerini aşırı kısıtlayarak genel semantik kabul oranını %57.9'a düşürmüştür. Bu nedenle post-hoc prompt hacking yapılmaksızın **Fix Agent V2 nihai candidate strateji olarak dondurulmuştur**.
+
+### 3. Kapsam ve Değerlendirme Sınırları
+* **PoC Seviyesinde Değerlendirme:** Bu çalışma bir advisory proof-of-concept (PoC) niteliğinde olup tam üretim hazırliği (production-readiness) iddiası taşımamaktadır.
+* **Semantik Kabul $\neq$ Tam Derleme/Test:** "Semantic accepted" metriği, dondurulmuş çok katmanlı hiyerarşi altında metinsel, sözcüksel ve önceden tanımlı oracle eşdeğerliğini ifade eder; harici `javac`/Maven test execution sandbox'ı gereksiniminin yerini tutmaz.
+* **Ayrıntılı Rapor:** Kapsamlı hata analizi, ablasyon tablosu ve HOLDOUT detayları için [final_fix_agent_evaluation.md](evaluation/fix_agent_benchmark_v2/reports/final_fix_agent_evaluation.md) raporunu inceleyebilirsiniz.
